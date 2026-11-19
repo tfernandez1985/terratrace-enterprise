@@ -2635,13 +2635,13 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (function(){'use strict';
 const $=id=>document.getElementById(id);
 // ONE TIME: enter the public OAuth Client ID issued by Egnyte for TerraTrace, no client secret.
-const EGNYTE_APP=Object.freeze({clientId:'',defaultDomain:''});
+const EGNYTE_APP=Object.freeze({clientId:'',defaultDomain:''}); // TT_EGNYTE_PUBLIC_CONFIG (public only; never add Client Secret)
 const isAdmin=()=>['super_admin','company_admin'].includes(window.ttEnterpriseRole||'');
 const safeDomain=v=>String(v||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\.egnyte\.com.*$/,'').replace(/\/.*$/,'');
 const validDomain=d=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(d);
 const validPath=p=>typeof p==='string'&&/^\/(Shared|Private)(\/[^\x00-\x1f]*)?$/i.test(p)&&!p.split('/').includes('..');
 let token='',domain='',current='/Shared',selectedKey='',folderPick=false,items=[],nonce='',popup=null,expiresAt=0;
-const config=()=>({clientId:EGNYTE_APP.clientId.trim(),domain:safeDomain(localStorage.getItem('tt_egnyte_domain')||EGNYTE_APP.defaultDomain)});
+const config=()=>({clientId:(EGNYTE_APP.clientId||localStorage.getItem('tt_egnyte_public_client_id')||'').trim(),domain:safeDomain(localStorage.getItem('tt_egnyte_domain')||EGNYTE_APP.defaultDomain)});
 const setMessage=m=>{$('tteMessage').textContent=m;};
 const routePath=p=>p.split('/').map((segment,i)=>i===0?'':encodeURIComponent(segment)).join('/');
 const apiUrl=(kind,path)=>'https://'+domain+'.egnyte.com/pubapi/v1/'+kind+routePath(path);
@@ -2658,7 +2658,7 @@ function openModal(key='',pick=false){selectedKey=key;folderPick=pick;const c=co
 }
 function closeModal(){$('tteModal').hidden=true;window.ttEgnyteLinkMode=false;}
 function signin(){const d=safeDomain($('tteDomain').value),id=config().clientId;if(!validDomain(d))return setMessage('Enter a valid Egnyte subdomain, such as company.egnyte.com.');
- if(!id)return setMessage('TerraTrace needs its one-time Egnyte OAuth app registration. Configure the public Client ID in index.html. Each user will then sign in normally.');
+ if(!id)return setMessage('Egnyte is not configured yet. A TerraTrace administrator can enter the PUBLIC API key under Settings → Egnyte Connection; do not enter the Client Secret.');
  localStorage.setItem('tt_egnyte_domain',d);domain=d;nonce=Array.from(crypto.getRandomValues(new Uint8Array(20)),b=>b.toString(16).padStart(2,'0')).join('');
  const url='https://'+domain+'.egnyte.com/puboauth/token?'+new URLSearchParams({client_id:id,redirect_uri:new URL('egnyte-oauth-callback.html',location.href).href,response_type:'token',scope:'Egnyte.filesystem',state:nonce});
  popup=window.open(url,'TerraTraceEgnyte','width=670,height=770');setMessage(popup?'Complete Egnyte sign-in in the popup.':'Allow the Egnyte popup in your browser, then try again.');}
@@ -2706,6 +2706,19 @@ function init(){const modal=document.createElement('div');modal.id='tteModal';mo
  window.ttOpenTractEgnyte=(key,mode)=>{const f=window.ttGetTractFolder?.(key);if(!f?.path)return alert('No Egnyte folder has been linked to this tract.');openModal(key,false);if(mode==='upload'&&token&&domain===f.domain)$('tteFile').click();};
  const docs=$('ttDocsSection');if(docs){const b=document.createElement('button');b.type='button';b.className='btn primary';b.textContent='☁ Browse My Egnyte';b.onclick=()=>openModal();docs.querySelector('.tt-section-body')?.prepend(b);}
  const linkBtn=$('ownershipLink');if(linkBtn){const update=()=>{linkBtn.hidden=!!window.ttEnterpriseRole&&!isAdmin()};window.addEventListener('tt-enterprise-role',update);update();}
+ // Admin-only deployment helper: permits one-time sitewide configuration, no secret.
+ const settings=$('ttSettingsSection')?.querySelector('.tt-section-body');
+ if(settings){
+   const box=document.createElement('div');box.id='tteAdminSetup';
+   box.innerHTML='<h2>EGNYTE CONNECTION</h2><p class="note">Configure TerraTrace with Egnyte’s public API Key / Client ID. Never enter the Client Secret. Upload the generated HTML to GitHub Pages to share the public configuration with all users.</p><label>Public Egnyte API Key / Client ID</label><input id="ttePublicKey" autocomplete="off" spellcheck="false" placeholder="Public API Key (NOT Client Secret)"><label>Default company Egnyte domain (optional)</label><input id="tteDefaultDomain" placeholder="company.egnyte.com" spellcheck="false"><button class="btn" id="tteSaveConfig" type="button">Save on This Device</button><button class="btn primary" id="tteExportConfigured" type="button">Download Configured index.html</button><p class="note" id="tteConfigStatus">Egnyte API approval is pending. Sign-in will be available after approval and any browser access permissions are enabled.</p>';
+   settings.append(box);
+   const keyEl=$('ttePublicKey'),domEl=$('tteDefaultDomain'),msgEl=$('tteConfigStatus');
+   keyEl.value=config().clientId;domEl.value=config().domain;
+   const update=()=>{box.hidden=!!window.ttEnterpriseRole&&!isAdmin();};window.addEventListener('tt-enterprise-role',update);update();
+   $('tteSaveConfig').onclick=()=>{const key=keyEl.value.trim(),d=safeDomain(domEl.value);if(!/^[A-Za-z0-9_-]{12,200}$/.test(key)){msgEl.textContent='Enter the public API Key / Client ID, not the secret.';return;}if(d&&!validDomain(d)){msgEl.textContent='Enter a valid Egnyte company domain.';return;}localStorage.setItem('tt_egnyte_public_client_id',key);if(d)localStorage.setItem('tt_egnyte_domain',d);msgEl.textContent='Saved on this browser. Download and publish the configured HTML so other users do not have to set up the key.';};
+   $('tteExportConfigured').onclick=async()=>{const key=keyEl.value.trim(),d=safeDomain(domEl.value);if(!/^[A-Za-z0-9_-]{12,200}$/.test(key)){msgEl.textContent='Enter the public API Key first.';return;}if(d&&!validDomain(d)){msgEl.textContent='Invalid Egnyte domain.';return;}try{const response=await fetch(location.href.split('#')[0],{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);let html=await response.text();const regex=/const EGNYTE_APP=Object\.freeze\(\{clientId:'[^']*',defaultDomain:'[^']*'\}\); \/\/ TT_EGNYTE_PUBLIC_CONFIG/;if(!regex.test(html))throw Error('Expected public config block missing.');const jsLiteral=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");html=html.replace(regex,"const EGNYTE_APP=Object.freeze({clientId:'"+jsLiteral(key)+"',defaultDomain:'"+jsLiteral(d)+"'}); // TT_EGNYTE_PUBLIC_CONFIG");const a=document.createElement('a'),u=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.href=u;a.download='index.html';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);msgEl.textContent='Configured index.html downloaded. Replace the existing GitHub Pages index.html with this file. Your Client Secret is NOT included.';}catch(e){msgEl.textContent='Export requires viewing TerraTrace on GitHub Pages (not file://). '+e.message;}};
+ }
+
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

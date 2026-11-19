@@ -49,6 +49,7 @@
       <div class="note" id="etDrawerCurrent">Open an Enterprise cloud project to begin.</div>
       <button class="btn" type="button" id="etDrawerNew" hidden>＋ New Enterprise Project</button>
       <button class="btn" type="button" id="etDrawerSuperAdmin" hidden>▦ Super Admin Dashboard</button>
+      <button class="btn primary" type="button" id="etDrawerImportKMZ">＋ Import KMZ / KML</button>
       <button class="btn" type="button" id="etDrawerAccount">Account / Company Workspace</button>
     </div>
   </details>
@@ -2450,7 +2451,7 @@ window.terraTracePythonGIS={
 @media(max-width:700px){#enterpriseGate .et-grid{grid-template-columns:1fr}#enterpriseGate .et-wrap{margin:20px auto 35px}#enterpriseGate .et-entry{align-items:flex-start;flex-direction:column}#enterpriseGate .et-btn{min-height:43px}}
 /* Legacy production cloud control groups are NOT part of enterprise access. */
 #ttSuperAdminEntry,#ttSuperAdminShell,#pythonGISPanel,#gisExtract,#gisRadius,#pythonGISEnabled,#cloudProjectSelect,#cloudRefresh,#cloudOpen,#cloudPublish,#cloudDownload,#manualSync,#manualSyncStatus{display:none!important}
-#drawer details.tt-section:has(#cloudProjectSelect),#drawer details.tt-section:has(#manualSync),#drawer details.tt-section:has(#pythonGISPanel){display:none!important}
+#drawer details.tt-section:has(> .tt-section-body > #cloudProjectSelect),#drawer details.tt-section:has(> .tt-section-body > #manualSync){display:none!important}
 </style>
 <button type="button" id="etFloating" hidden>Enterprise Projects / Account</button>
 <div id="enterpriseGate" role="dialog" aria-modal="true" aria-label="TerraTrace Enterprise Development Login">
@@ -2546,7 +2547,7 @@ function hideLegacySections(){
       continue;
    }
    let node=heading;
-   while(node&&node.tagName!=='H2' || node===heading){
+   while(node && (node===heading || (node.tagName!=='H2' && node.tagName!=='DETAILS'))){
       const next=node.nextElementSibling;node.classList.add('et-legacy-hidden');node=next;
    }
  }
@@ -2575,6 +2576,7 @@ function install(){try{$('etApi').value=localStorage.getItem(storeKey)||''}catch
  $('etDrawerOpen').onclick=wrap(async()=>{const id=$('etDrawerProjectSelect').value;if(!id)throw Error('Select an Enterprise cloud project first.');await openProject(id);});
  $('etDrawerSync').onclick=wrap(saveProject);
  $('etDrawerNew').onclick=wrap(newProject);
+ $('etDrawerImportKMZ').onclick=()=>{const picker=$('fileGIS');if(!picker){alert('KMZ/KML file picker is unavailable');return;}picker.click();};
  $('etDrawerAccount').onclick=openGate;
  $('etDrawerSuperAdmin').onclick=openSuperAdmin;
  hideLegacySections();

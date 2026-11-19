@@ -278,8 +278,8 @@ function setupPolygonHold(){
   const linked=(/Polygon/.test(f.geometry?.type||''))?(state.tractDocuments?.[tractKey]||[]):[];
   const permittedUrl=u=>/^https:\/\/[a-z0-9-]+\.egnyte\.com\/(?:[a-z0-9_/?#=&%.+~-]+)$/i.test(u||'');
   const folderLinks=folder?'<div style="margin-top:12px;padding:10px;background:#eaf5fa;border:1px solid #a9c9db;border-radius:6px"><b>EGNYTE · TRACT DOCUMENTS</b>'+
-    (permittedUrl(folder.viewUrl)?'<div style="padding:8px 0"><a href="'+esc(folder.viewUrl)+'" target="_blank" rel="noopener noreferrer">📁 View Documents</a></div>':'')+
-    (permittedUrl(folder.uploadUrl)?'<div style="padding:8px 0"><a href="'+esc(folder.uploadUrl)+'" target="_blank" rel="noopener noreferrer">⬆ Upload Files to This Tract</a></div>':'')+
+    (folder.path?'<div style="padding:8px 0"><button type="button" class="tt-open-egnyte" data-tract="'+esc(tractKey)+'" data-mode="view">📁 View Documents</button></div>':permittedUrl(folder.viewUrl)?'<div style="padding:8px 0"><a href="'+esc(folder.viewUrl)+'" target="_blank" rel="noopener noreferrer">📁 View Documents</a></div>':'')+
+    (folder.path?'<div style="padding:8px 0"><button type="button" class="tt-open-egnyte" data-tract="'+esc(tractKey)+'" data-mode="upload">⬆ Upload Files to This Tract</button></div>':permittedUrl(folder.uploadUrl)?'<div style="padding:8px 0"><a href="'+esc(folder.uploadUrl)+'" target="_blank" rel="noopener noreferrer">⬆ Upload Files to This Tract</a></div>':'')+
     '<div style="font-size:11px;color:#536a79">'+esc(folder.label||'Egnyte tract folder')+'</div></div>':'';
   const docs=linked.length?'<div style="margin-top:12px;padding:9px;background:#eaf5fa;border:1px solid #a9c9db;border-radius:6px"><b>LINKED FILES ('+linked.length+')</b>'+linked.filter(d=>permittedUrl(d.url)).map(d=>'<div style="padding:6px 0"><a target="_blank" rel="noopener noreferrer" href="'+esc(d.url)+'">📄 '+esc(d.name||'Open Egnyte document')+'</a></div>').join('')+'</div>':'';
   const html='<div style="min-width:310px;max-width:760px;max-height:420px;overflow:auto;color:#1b2630"><b style="font-size:15px">'+esc(name)+'</b><div style="margin-top:8px">'+(details||'No additional attributes in this file.')+'</div>'+folderLinks+docs+'<small style="display:block;margin-top:10px;color:#52616a">Right-click or press and hold to change this feature color.</small></div>';
@@ -2628,44 +2628,84 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script>
 (function(){function moveSettingsLast(){const d=document.getElementById('drawer'),s=document.getElementById('ttSettingsSection');if(d&&s&&d.lastElementChild!==s)d.append(s);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',moveSettingsLast);else moveSettingsLast();})();
 </script>
+<script>document.addEventListener('click',e=>{const b=e.target.closest?.('.tt-open-egnyte');if(b)window.ttOpenTractEgnyte?.(b.dataset.tract,b.dataset.mode);});</script>
 <script id="tt-egnyte-script">
-/* Company-managed Egnyte folder linking: admin sets links, users view/upload through Egnyte.
-   This HTML does not hold Egnyte credentials or API tokens. Backend must enforce admin-only edits. */
+/* TerraTrace Egnyte per-user browser integration. No Egnyte passwords, secrets or access
+   tokens are included in project data. OAuth Client ID is a public, site-wide value. */
 (function(){'use strict';
 const $=id=>document.getElementById(id);
+// ONE TIME: enter the public OAuth Client ID issued by Egnyte for TerraTrace, no client secret.
+const EGNYTE_APP=Object.freeze({clientId:'',defaultDomain:''});
 const isAdmin=()=>['super_admin','company_admin'].includes(window.ttEnterpriseRole||'');
-const valid=v=>/^https:\/\/[a-z0-9-]+\.egnyte\.com\/[a-z0-9_/?#=&%.+~-]+$/i.test((v||'').trim());
-let tractKey='';
-function close(){ $('ttEgnyteManaged').hidden=true;window.ttEgnyteLinkMode=false; }
-function openEditor(key){if(!isAdmin()){alert('Only a TerraTrace company admin can link an Egnyte folder to a tract.');return;}
-  tractKey=key;const f=window.ttGetTractFolder?.(key)||{};
-  $('ttEgnyteTractLabel').textContent='Selected tract: '+key;
-  $('ttEgnyteFolderName').value=f.label||'';
-  $('ttEgnyteFolderView').value=f.viewUrl||'';
-  $('ttEgnyteFolderUpload').value=f.uploadUrl||'';
-  $('ttEgnyteManaged').hidden=false;
+const safeDomain=v=>String(v||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\.egnyte\.com.*$/,'').replace(/\/.*$/,'');
+const validDomain=d=>/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(d);
+const validPath=p=>typeof p==='string'&&/^\/(Shared|Private)(\/[^\x00-\x1f]*)?$/i.test(p)&&!p.split('/').includes('..');
+let token='',domain='',current='/Shared',selectedKey='',folderPick=false,items=[],nonce='',popup=null,expiresAt=0;
+const config=()=>({clientId:EGNYTE_APP.clientId.trim(),domain:safeDomain(localStorage.getItem('tt_egnyte_domain')||EGNYTE_APP.defaultDomain)});
+const setMessage=m=>{$('tteMessage').textContent=m;};
+const routePath=p=>p.split('/').map((segment,i)=>i===0?'':encodeURIComponent(segment)).join('/');
+const apiUrl=(kind,path)=>'https://'+domain+'.egnyte.com/pubapi/v1/'+kind+routePath(path);
+const auth=()=>{if(!token||Date.now()>expiresAt){token='';throw Error('Sign into your Egnyte account to continue.');}return {'Authorization':'Bearer '+token};};
+async function request(path,method='GET',body){if(!validPath(path))throw Error('Invalid Egnyte folder or file path');const headers=auth();if(method==='GET')headers.Accept='application/json';const r=await fetch(apiUrl(method==='GET'?'fs':'fs-content',path),{method,headers,body});if(!r.ok)throw Error('Egnyte returned HTTP '+r.status);return r;}
+function openModal(key='',pick=false){selectedKey=key;folderPick=pick;const c=config();$('tteModal').hidden=false;$('tteDomain').value=(key?window.ttGetTractFolder?.(key)?.domain:'')||domain||c.domain;
+ const f=key?window.ttGetTractFolder?.(key):null;current=validPath(f?.path)?f.path:'/Shared';
+ $('tteTitle').textContent=pick?'LINK EGNYTE FOLDER TO TRACT':key?'TRACT DOCUMENTS':'EGNYTE DOCUMENT CENTER';
+ $('tteTract').textContent=key?'Tract: '+key+(f?.path?' · '+f.path:' · No folder linked'):'Browse the folders available to your Egnyte account';
+ $('tteChoose').hidden=!pick;$('tteUpload').hidden=pick||!key||!f?.path;$('tteRemove').hidden=!pick||!f?.path;
+ $('tteSearch').value='';$('tteItems').replaceChildren();$('ttePath').textContent=current;
+ setMessage(token&&domain===safeDomain($('tteDomain').value)?'Connected.':'Sign into your own Egnyte account to browse folders.');
+ if(token&&domain===safeDomain($('tteDomain').value))browse(current);
 }
-function save(){if(!isAdmin())return alert('Administrator access required');
-  const label=$('ttEgnyteFolderName').value.trim(),viewUrl=$('ttEgnyteFolderView').value.trim(),uploadUrl=$('ttEgnyteFolderUpload').value.trim();
-  if(!valid(viewUrl))return alert('Paste a valid Egnyte folder viewing link (https://YOURDOMAIN.egnyte.com/...).');
-  if(!valid(uploadUrl))return alert('Paste a valid Egnyte upload link for that same folder.');
-  window.ttSaveTractFolder?.(tractKey,{label:label||'Tract documents',viewUrl,uploadUrl});close();alert('Folder linked. Use Sync Changes to publish it to the other TerraTrace users.');
+function closeModal(){$('tteModal').hidden=true;window.ttEgnyteLinkMode=false;}
+function signin(){const d=safeDomain($('tteDomain').value),id=config().clientId;if(!validDomain(d))return setMessage('Enter a valid Egnyte subdomain, such as company.egnyte.com.');
+ if(!id)return setMessage('TerraTrace needs its one-time Egnyte OAuth app registration. Configure the public Client ID in index.html. Each user will then sign in normally.');
+ localStorage.setItem('tt_egnyte_domain',d);domain=d;nonce=Array.from(crypto.getRandomValues(new Uint8Array(20)),b=>b.toString(16).padStart(2,'0')).join('');
+ const url='https://'+domain+'.egnyte.com/puboauth/token?'+new URLSearchParams({client_id:id,redirect_uri:new URL('egnyte-oauth-callback.html',location.href).href,response_type:'token',scope:'Egnyte.filesystem',state:nonce});
+ popup=window.open(url,'TerraTraceEgnyte','width=670,height=770');setMessage(popup?'Complete Egnyte sign-in in the popup.':'Allow the Egnyte popup in your browser, then try again.');}
+window.addEventListener('message',ev=>{if(ev.origin!==location.origin||ev.source!==popup||ev.data?.type!=='terratrace-egnyte-oauth')return;
+ if(!nonce||ev.data.state!==nonce){setMessage('Sign-in validation failed. Please retry.');return;}nonce='';
+ if(!ev.data.access_token){setMessage('Egnyte sign-in did not complete: '+String(ev.data.error||'No access token returned'));return;}
+ token=ev.data.access_token;expiresAt=Date.now()+Math.max(60,Math.min(3600*24,Number(ev.data.expires_in)||3600))*1000;
+ setMessage('Connected to Egnyte.');browse(current);
+});
+function folderEntry(f){const b=document.createElement('div');b.className='tte-item';const title=document.createElement('span');title.textContent=(f._folder?'📁 ':'📄 ')+(f.name||'Unnamed');b.append(title);
+ const act=document.createElement('button');act.className='btn';act.type='button';act.textContent=f._folder?'Open': 'View';
+ act.onclick=()=>f._folder?browse(f.path||current+'/'+f.name):openFile(f.path||current+'/'+f.name,f.name);b.append(act);return b;}
+function render(){const host=$('tteItems');host.replaceChildren();const filter=$('tteSearch').value.trim().toLowerCase();let shown=0;
+ for(const f of items){if(folderPick&&!f._folder)continue;if(!String(f.name||'').toLowerCase().includes(filter))continue;host.append(folderEntry(f));shown++;}
+ if(!shown){const e=document.createElement('p');e.className='note';e.textContent='No matching '+(folderPick?'folders':'files or folders')+' here.';host.append(e);}}
+async function browse(path){if(!validPath(path))return setMessage('Invalid folder path');current=path;$('ttePath').textContent=path;setMessage('Loading '+path+'…');
+ try{const r=await request(path);const data=await r.json();items=[...(data.folders||[]).map(x=>({...x,_folder:true})),...(data.files||[]).map(x=>({...x,_folder:false}))];render();setMessage(items.length+' entries. '+(folderPick?'Select this folder or open a subfolder.':'View documents or upload to the linked folder.'));}
+ catch(e){items=[];render();setMessage(e.message+' Browser access requires Egnyte API and CORS authorization for your domain.');}}
+async function openFile(path,name){try{const r=await fetch(apiUrl('fs-content',path),{headers:auth()});if(!r.ok)throw Error('HTTP '+r.status);const blob=await r.blob();const u=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener';a.download=name||'document';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);
+ setMessage('Document opened/downloaded.');}catch(e){setMessage('Cannot open file: '+e.message);}}
+function choose(){if(!folderPick||!selectedKey||!isAdmin())return setMessage('Only your TerraTrace company admin can link tract folders.');
+ window.ttSaveTractFolder?.(selectedKey,{provider:'egnyte',domain,path:current,label:current.split('/').pop()||'Tract Documents'});
+ closeModal();alert('Linked '+current+' to this tract. Use Sync Changes to share the folder assignment.');}
+async function upload(){const f=window.ttGetTractFolder?.(selectedKey);if(!f?.path||!validPath(f.path))return setMessage('No folder linked to this tract.');
+ const files=Array.from($('tteFile').files||[]);if(!files.length)return;const original=current;
+ for(const file of files){try{const clean=file.name.replace(/[\\/]/g,'_');if(!clean||clean==='.'||clean==='..')throw Error('Invalid filename');
+ setMessage('Uploading '+clean+'…');const destination=f.path.replace(/\/$/,'')+'/'+clean;
+ // Egnyte filesystem-content upload API accepts a raw file body at the destination path.
+ const r=await fetch(apiUrl('fs-content',destination),{method:'POST',headers:{...auth(),'Content-Type':file.type||'application/octet-stream'},body:file});if(!r.ok)throw Error('HTTP '+r.status);
+ setMessage('Uploaded '+clean+' to '+f.path);}
+ catch(e){setMessage('Upload failed for '+file.name+': '+e.message);break;}}
+ $('tteFile').value='';if(original===f.path)await browse(f.path);
 }
-function init(){
-  const el=document.createElement('div');el.id='ttEgnyteManaged';el.hidden=true;
-  el.innerHTML=`<div class="tt-eg-admin" role="dialog" aria-modal="true" aria-label="Link Egnyte folder"><div class="tt-eg-top"><b>LINK EGNYTE FOLDER TO TRACT</b><button class="btn" id="ttEgnyteManagedClose">✕ Close</button></div>
-    <p class="note" id="ttEgnyteTractLabel"></p><label>Egnyte folder name / landowner</label><input id="ttEgnyteFolderName" placeholder="Landowner / tract folder">
-    <label>Folder viewing link</label><input id="ttEgnyteFolderView" placeholder="https://company.egnyte.com/..."><label>Upload link for the same folder</label><input id="ttEgnyteFolderUpload" placeholder="https://company.egnyte.com/..."><p class="note">In Egnyte, use Share to copy the folder viewing link and request files/create an upload link for this exact folder. Choose link permissions consistent with your company's requirements. Users never enter Egnyte credentials in TerraTrace.</p>
-    <div class="tt-eg-top"><button class="btn primary" id="ttEgnyteManagedSave">Save Tract Folder</button><button class="btn" id="ttEgnyteManagedRemove">Remove Folder Link</button></div></div>`;
-  document.body.append(el);
-  $('ttEgnyteManagedClose').onclick=close;$('ttEgnyteManagedSave').onclick=save;
-  $('ttEgnyteManagedRemove').onclick=()=>{if(!isAdmin())return;if(confirm('Remove this tract folder link from the project?')){window.ttSaveTractFolder?.(tractKey,null);close();}};
-  const style=document.createElement('style');style.textContent='#ttEgnyteManaged[hidden]{display:none!important}#ttEgnyteManaged{display:flex;position:fixed;inset:0;z-index:5600;background:#000b;justify-content:center;align-items:center;padding:12px}#ttEgnyteManaged .tt-eg-admin{width:min(550px,100%);max-height:94vh;overflow:auto;padding:18px;border-radius:12px;border:1px solid #46657a;background:#101b28}#ttEgnyteManaged label{display:block;margin-top:12px}#ttEgnyteManaged input{width:100%}';document.head.append(style);
-  window.ttBeginEgnyteTractLink=()=>{if(!isAdmin())return alert('Only company administrators can set up tract folders.');window.ttEgnyteLinkMode=true;$('drawer')?.classList.remove('open');$('modeText').textContent='LINK TRACTS';$('status').textContent='LINK TRACTS: Click a parcel to assign its Egnyte folder.';};
-  window.ttEgnyteTractPick=f=>{if(!/Polygon/.test(f.geometry?.type||''))return;window.ttEgnyteLinkMode=false;$('modeText').textContent='SELECT';const key=f.properties?._ownershipKey||window.ttOwnershipFeatureKey?.(f);if(key)openEditor(key);};
-  const docsBtn=document.querySelector('#ttDocsSection .tt-doc-toolbar');
-  if(docsBtn){const b=document.createElement('button');b.type='button';b.className='btn';b.textContent='Egnyte Tract Folders';b.onclick=()=>alert('Your administrator links an Egnyte folder and upload link to each tract. Click a parcel on the map to View Documents or Upload Files.');docsBtn.append(b);}
-  const linkBtn=$('ownershipLink');if(linkBtn){const update=()=>{linkBtn.hidden=!!window.ttEnterpriseRole&&!isAdmin();};window.addEventListener('tt-enterprise-role',update);update();}
+function init(){const modal=document.createElement('div');modal.id='tteModal';modal.hidden=true;
+ modal.innerHTML=`<div class="tte-panel" role="dialog" aria-modal="true" aria-label="Egnyte File Browser"><div class="tte-top"><strong id="tteTitle">EGNYTE</strong><button id="tteClose" class="btn">✕ Close</button></div><p id="tteTract" class="note"></p><label>Company Egnyte domain</label><input id="tteDomain" placeholder="company.egnyte.com" spellcheck="false"><div class="tte-top"><button class="btn primary" id="tteLogin">Sign in to Egnyte</button><button class="btn" id="tteDisconnect">Disconnect</button></div><p id="tteMessage" class="note" aria-live="polite"></p><div class="tte-top"><button class="btn" id="tteShared">Shared</button><button class="btn" id="ttePrivate">Private</button><button class="btn" id="tteParent">↑ Parent</button><button class="btn" id="tteRefresh">↻ Refresh</button></div><div id="ttePath" class="note"></div><input id="tteSearch" placeholder="Search this folder" aria-label="Search folder"><div id="tteItems"></div><div class="tte-top" style="margin-top:12px"><button class="btn primary" id="tteChoose" hidden>✓ Link This Folder to Tract</button><button class="btn" id="tteUpload" hidden>⬆ Upload Files to This Tract</button><button class="btn" id="tteRemove" hidden>Unlink Tract</button></div><input type="file" id="tteFile" multiple hidden><p class="note">Folder assignments sync with your TerraTrace project. Egnyte sign-in tokens and file contents are never stored in the project; permissions follow each person's Egnyte account.</p></div>`;
+ document.body.append(modal);const style=document.createElement('style');style.textContent=`#tteModal[hidden]{display:none!important}#tteModal{position:fixed;inset:0;background:#000b;z-index:5600;display:flex;justify-content:center;align-items:center;padding:12px}#tteModal .tte-panel{background:#101b28;border:1px solid #42677a;border-radius:12px;width:min(660px,100%);max-height:95vh;overflow:auto;padding:18px}#tteModal .tte-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}#tteModal .tte-top strong{flex:1}#tteModal .tte-top button{width:auto!important}#tteItems{border:1px solid #355267;min-height:80px;max-height:44vh;overflow:auto;border-radius:8px;padding:8px;margin-top:8px}#tteItems .tte-item{display:flex;gap:8px;align-items:center;border-bottom:1px solid #294253;padding:7px}#tteItems .tte-item span{flex:1;overflow-wrap:anywhere}#tteItems .tte-item button{width:auto!important}#ttePath{padding:7px 0;overflow-wrap:anywhere}`;document.head.append(style);
+ $('tteClose').onclick=closeModal;$('tteLogin').onclick=signin;$('tteDisconnect').onclick=()=>{token='';expiresAt=0;items=[];render();setMessage('Disconnected from Egnyte on this device.');};
+ $('tteShared').onclick=()=>browse('/Shared');$('ttePrivate').onclick=()=>browse('/Private');$('tteParent').onclick=()=>{const parts=current.split('/');if(parts.length>2){parts.pop();browse(parts.join('/'));}};$('tteRefresh').onclick=()=>browse(current);$('tteSearch').oninput=render;
+ $('tteChoose').onclick=choose;$('tteUpload').onclick=()=>$('tteFile').click();$('tteFile').onchange=upload;
+ $('tteRemove').onclick=()=>{if(!isAdmin()||!selectedKey)return;if(confirm('Unlink this Egnyte folder from this tract?')){window.ttSaveTractFolder?.(selectedKey,null);closeModal();}};
+ modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});
+ window.ttBeginEgnyteTractLink=()=>{if(!isAdmin())return alert('Only company administrators can link tract folders.');window.ttEgnyteLinkMode=true;$('drawer')?.classList.remove('open');$('modeText').textContent='LINK TRACTS';$('status').textContent='LINK TRACTS: Click a parcel on the map.';};
+ window.ttEgnyteTractPick=f=>{if(!/Polygon/.test(f?.geometry?.type||''))return;window.ttEgnyteLinkMode=false;$('modeText').textContent='SELECT';const key=f.properties?._ownershipKey||window.ttOwnershipFeatureKey?.(f);if(key)openModal(key,true);};
+ window.ttOpenTractEgnyte=(key,mode)=>{const f=window.ttGetTractFolder?.(key);if(!f?.path)return alert('No Egnyte folder has been linked to this tract.');openModal(key,false);if(mode==='upload'&&token&&domain===f.domain)$('tteFile').click();};
+ const docs=$('ttDocsSection');if(docs){const b=document.createElement('button');b.type='button';b.className='btn primary';b.textContent='☁ Browse My Egnyte';b.onclick=()=>openModal();docs.querySelector('.tt-section-body')?.prepend(b);}
+ const linkBtn=$('ownershipLink');if(linkBtn){const update=()=>{linkBtn.hidden=!!window.ttEnterpriseRole&&!isAdmin()};window.addEventListener('tt-enterprise-role',update);update();}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

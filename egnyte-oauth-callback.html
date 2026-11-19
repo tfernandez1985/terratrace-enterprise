@@ -1,0 +1,3 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Egnyte Sign-in · TerraTrace</title></head><body style="background:#101a26;color:white;font:16px system-ui;padding:25px"><p>Returning to TerraTrace…</p><script>
+(function(){const p=new URLSearchParams(location.hash.slice(1)||location.search.slice(1));const data={type:'terratrace-egnyte-oauth',state:p.get('state')||'',access_token:p.get('access_token')||'',error:p.get('error')||'',expires_in:p.get('expires_in')||''};if(window.opener){window.opener.postMessage(data,location.origin);setTimeout(()=>window.close(),350)}else document.body.textContent='Please return to TerraTrace. Open Egnyte sign-in from TerraTrace to connect.';history.replaceState({},'',location.pathname)})();
+</script></body></html>

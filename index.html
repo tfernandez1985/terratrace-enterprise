@@ -2737,7 +2737,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 /* TerraTrace Google Drive: browser OAuth tokens remain in memory, never in shared projects. */
 (function(){'use strict';
 const $=id=>document.getElementById(id);
-const GOOGLE_DRIVE_PUBLIC=Object.freeze({clientId:'',apiKey:'',projectNumber:''}); // TT_GOOGLE_PUBLIC_CONFIG
+const GOOGLE_DRIVE_PUBLIC=Object.freeze({clientId:'763019060124-309idhiqmlni7o4i0f6kfcu9e32s4ubn.apps.googleusercontent.com',apiKey:'AIzaSyAdU0e_C_tyMjyqXtb70ucEF-nvIpFEb9U',projectNumber:'763019060124'}); // TT_GOOGLE_PUBLIC_CONFIG
 const isAdmin=()=>['super_admin','company_admin'].includes(window.ttEnterpriseRole||'');
 let oauthClient=null,accessToken='',expiry=0,googlePickerReady=false,selectedTract='',linkMode=false,activeFolder=null,authAction=null,listing=[];
 const settings=()=>({clientId:GOOGLE_DRIVE_PUBLIC.clientId||localStorage.getItem('tt_google_clientid')||'',apiKey:GOOGLE_DRIVE_PUBLIC.apiKey||localStorage.getItem('tt_google_apikey')||'',projectNumber:GOOGLE_DRIVE_PUBLIC.projectNumber||localStorage.getItem('tt_google_projectnumber')||''});

@@ -130,6 +130,7 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
       <button class="btn" type="button" id="etDrawerNew" hidden>＋ New Enterprise Project</button>
       <button class="btn" type="button" id="etDrawerSuperAdmin" hidden>▦ Super Admin Dashboard</button>
       <button class="btn" type="button" id="etDrawerCAD">⌁ Open CAD Tools</button>
+      <div class="note">Field / Viewer: CAD drawings and photo pins can sync. Imported KML / KMZ layers are local to your device and never published by your account. Export a local backup if you need those layers later.</div>
       <button class="btn primary" type="button" id="etDrawerImportKMZ">＋ Import KMZ / KML</button>
       <button class="btn" type="button" id="etDrawerAccount">Account / Company Workspace</button>
     </div>
@@ -2740,13 +2741,13 @@ const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const ENTERPRISE_WORKER_URL='https://terratrace-enterprise-dev.supersurveyor1985.workers.dev';
 let token='',me=null,selected=null,selectedRev=null,projects=[],companies=[],users=[],view='projects';
 const canEdit=()=>!!me&&['super_admin','company_admin','management'].includes(me.role);
-function drawerState(){const panel=$('etDrawerProjects');if(!panel)return;panel.hidden=!me;if(!me)return;$('etDrawerIdentity').textContent=`${me.name} · ${me.role} · ${me.company_id||'All companies'}`;$('etDrawerSuperAdmin').hidden=me.role!=='super_admin';$('etDrawerNew').hidden=!canEdit();$('etDrawerSync').hidden=false;$('etDrawerSync').textContent=me.role==='viewer'?'↻ Sync CAD + Paperwork':'↻ Sync Changes';$('etDrawerCurrent').textContent=selected?`Current: ${selected.name} · revision ${selectedRev}`:'Open an Enterprise cloud project to begin.';}
+function drawerState(){const panel=$('etDrawerProjects');if(!panel)return;panel.hidden=!me;if(!me)return;$('etDrawerIdentity').textContent=`${me.name} · ${me.role} · ${me.company_id||'All companies'}`;$('etDrawerSuperAdmin').hidden=me.role!=='super_admin';$('etDrawerNew').hidden=!canEdit();$('etDrawerSync').hidden=false;$('etDrawerSync').textContent=me.role==='viewer'?'↻ Sync CAD + Photos + Paperwork':'↻ Sync Changes';$('etDrawerCurrent').textContent=selected?`Current: ${selected.name} · revision ${selectedRev}`:'Open an Enterprise cloud project to begin.';}
 function syncProjectSelect(value){$('etProjectsSelect').value=value||'';$('etDrawerProjectSelect').value=value||'';}
 const $app=$('enterpriseGate');
 const apiUrl=()=>ENTERPRISE_WORKER_URL;
 window.terraTraceEnterpriseRequest=(path,method='GET',body=null)=>api(path,method,body);
 function output(s,warning=false){$('etMessage').textContent=s;$('etMessage').style.color=warning?'#ffbd9d':'#94d6cc';}
-function dashboard(){window.ttEnterpriseRole=me?.role||'';window.dispatchEvent(new Event('tt-enterprise-role'));const show=!!me;$('enterpriseGate').classList.toggle('et-logged-in',show);$('etLogin').hidden=show;$('etDashboard').hidden=!show;$('etIdentity').textContent=show?`${me.name} · ${me.role} · ${me.company_id||'All companies'}`:'';$('etLogout').hidden=!show;$('etAdminTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etUserTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etAssignTab').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etNewProject').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etSaveProject').hidden=!show;$('etSaveProject').textContent=me?.role==='viewer'?'Sync CAD + Paperwork':'Sync Changes';$('etNewCompany').hidden=!show||me.role!=='super_admin';$('etManageUsers').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etProjectsSelect').hidden=!show;drawerState();}
+function dashboard(){window.ttEnterpriseRole=me?.role||'';window.dispatchEvent(new Event('tt-enterprise-role'));const show=!!me;$('enterpriseGate').classList.toggle('et-logged-in',show);$('etLogin').hidden=show;$('etDashboard').hidden=!show;$('etIdentity').textContent=show?`${me.name} · ${me.role} · ${me.company_id||'All companies'}`:'';$('etLogout').hidden=!show;$('etAdminTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etUserTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etAssignTab').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etNewProject').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etSaveProject').hidden=!show;$('etSaveProject').textContent=me?.role==='viewer'?'Sync CAD + Photos + Paperwork':'Sync Changes';$('etNewCompany').hidden=!show||me.role!=='super_admin';$('etManageUsers').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etProjectsSelect').hidden=!show;drawerState();}
 async function api(path,method='GET',body=null,extra={}){
  const url=apiUrl();if(!/^https?:\/\//.test(url))throw Error('Invalid Enterprise Worker configuration');
  const headers={...extra};if(token)headers.authorization=`Bearer ${token}`;
@@ -2842,6 +2843,11 @@ async function saveViewerPaperwork(){
  }
  selectedRev=check.project.revision;
  // Reloading is safe only after verifying the server contains every submitted item.
+ const personal=window.ttProject.snapshot();
+ // Retain personally imported KMZ/KML overlays after syncing paperwork.
+ // Cloud reference layers are unchanged; the locally displayed layers stay available.
+ check.data.reference=personal.reference;
+ check.data.gisLibrary=personal.gisLibrary;
  window.ttProject.open(check.data,selected.name);
  $('etSelected').textContent=`Current: ${selected.name} · revision ${selectedRev}`;
  drawerState();output('Viewer paperwork saved and verified · '+changes.length+' update(s), revision '+selectedRev+'.');
@@ -2849,7 +2855,7 @@ async function saveViewerPaperwork(){
 }
 // CAD editing is available to Field and Viewer users on projects assigned to them.
 // Viewers save only the CAD-specific fields below; all other project data remains server-owned.
-const TT_CAD_SYNC_FIELDS=['cl','original','points','lines','annotations','dimensions',
+const TT_CAD_SYNC_FIELDS=['cl','original','points','photos','lines','annotations','dimensions',
  'stationEquations','stationingOverlay','stationingVisible','counter'];
 async function saveViewerCAD(){
  if(!me||me.role!=='viewer'||!selected)throw Error('Open an assigned project first.');
@@ -2881,6 +2887,14 @@ async function saveProject(){
  if(!selected)throw Error('Open an Enterprise project first');
  if(window.ttProject.name!==selected.name)throw Error('The current map is a different local project. Reopen the intended Enterprise project before syncing.');
  const snapshot=window.ttProject.snapshot();
+ // Field-added KML/KMZ and GIS layers are personal overlays, NOT shared project data.
+ // Keep existing cloud reference layers unchanged rather than wiping admin-owned files.
+ if(me?.role==='field'){
+  const currentCloud=await api(`/v1/projects/${encodeURIComponent(selected.id)}`);
+  if(currentCloud.project.revision!==selectedRev)throw Error('Cloud project changed. Save a local backup, then reopen the project before syncing.');
+  snapshot.reference=currentCloud.data.reference||[];
+  snapshot.gisLibrary=currentCloud.data.gisLibrary||[];
+ }
  // Carry forward note history in both ownership and top-level project snapshots.
  snapshot.ownershipTracts=snapshot.ownershipTracts||{};
  snapshot.tractNotes=snapshot.tractNotes||{};

@@ -3181,19 +3181,99 @@ function close(){if(dirty&&!confirm('The current edits have not been saved. Clos
 function stored(){return window.ttGetBuildSheet?.(currentTract)||{};}
 function saveLocal(){const existing=stored();const obj={version:1,fields:gather(),updatedAt:new Date().toISOString(),updatedBy:document.getElementById('etIdentity')?.textContent?.trim()||'TerraTrace user',createdAt:existing.createdAt||new Date().toISOString()};window.ttSaveBuildSheet?.(currentTract,obj);dirty=false;message('Saved in this project. Click Sync Changes to publish to other users.');$('ttbsExport').disabled=false;onDone();return obj;}
 async function saveAndSync(){const obj=saveLocal();const btn=$('ttbsSaveSync');btn.disabled=true;message('Saving build sheet to the Enterprise project...');try{if(typeof window.ttSaveTractNoteToCloud!=='function')throw Error('No active Enterprise cloud project. You can still use Sync Changes.');const r=await window.ttSaveTractNoteToCloud();message('Cloud revision '+r.revision+' saved and verified. Office users can reopen this tract to download the PDF.');}catch(err){message('Cloud save not verified: '+(err?.message||String(err))+'\nYour form remains in this open project. Try Sync Changes or download a backup before closing.');}finally{btn.disabled=false;} }
+// Measured against the ORIGINAL 612 × 1008 point Pipeline Build Sheet PDF.
+// All x / top coordinates are PDF points, measured from its upper-left.
 const pdfLocations={
- project:[184,75,330],tractNo:[110,103,320],workingWidth:[177,133,34],permanentWidth:[408,133,33],
- ownerName:[112,195,220],homePhone:[447,193,110],address:[112,219,220],cellPhone:[447,219,110],city:[104,242,58],state:[202,242,20],zip:[278,242,57],workPhone:[447,244,110],tenantName:[108,325,130],tenantPhone:[324,325,99],utilityDescription:[137,417,455],seedType:[124,587,338],gateType:[124,636,338],special:[35,746,540],landman:[80,895,165],landmanCell:[80,919,165],landmanAlt:[80,943,165],date:[80,965,160]
+ project:[97,74,408,12],tractNo:[114,107,315,12],
+ workingWidth:[181,136,25,12],permanentWidth:[409,136,25,12],
+ ownerName:[95,197,236,11],homePhone:[431,194,94,10],
+ address:[95,220,236,10],cellPhone:[431,221,94,10],
+ city:[94,247,61,9],state:[202,247,15,9],zip:[282,247,47,9],workPhone:[431,248,94,9],
+ tenantName:[114,326,130,9],tenantPhone:[315,326,84,9],
+ utilityDescription:[142,424,423,8],seedType:[129,588,330,10],gateType:[129,640,330,10],
+ special:[35,753,535,135],landman:[86,895,142,10],landmanCell:[86,919,142,10],
+ landmanAlt:[86,943,142,10],date:[86,966,142,9]
 };
-const yesNoPositions={agreeable:[290,35,59],tenant:[309,35,59],tenantDealt:[342,35,59],wetlands:[360,35,59],wetlandsPermitted:[360,155,181],utilities:[399,35,59],livestock:[437,35,59],roads:[459,35,59],timber:[479,77,101],landownerTimber:[497,77,101],burnTimber:[513,77,101],chipTimber:[530,77,101],grazing:[550,35,59],seeding:[568,35,59],gates:[615,35,59],appurtenances:[659,35,59],locationSketch:[678,35,59],released:[696,35,59]};
-async function exportPdf(){if(dirty){message('Save your changes before downloading, or they will not be included.');return;}if(!window.PDFLib){message('PDF library unavailable. Check internet connection and try again.');return;}try{
- const b64=SOURCE_PDF_BASE64;const bin=atob(b64);const bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));const pdf=await PDFLib.PDFDocument.load(bytes);const pg=pdf.getPages()[0];const font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);const height=pg.getHeight();const values=stored().fields||{};
- const text=(s,x,top,maxw=500,size=9)=>{if(!s&&s!==0)return;let str=String(s);const limit=Math.max(1,maxw);while(str&&font.widthOfTextAtSize(str,size)>limit){str=str.slice(0,-1)}pg.drawText(str,{x,y:height-top-size,size,font,color:PDFLib.rgb(.045,.07,.09)});};
- const white=(x,y,w,h)=>pg.drawRectangle({x,y:height-y-h,width:w,height:h,color:PDFLib.rgb(1,1,1)});
- for(const [key,coord] of Object.entries(pdfLocations)){let value=values[key];if(!value)continue;let [x,top,w]=coord;if(key==='project'){white(x-3,top-3,330,18);}else if(key==='date'){white(x-1,top-2,w,16);}if(key==='special'){const words=String(value).split(/\s+/);let line='',y=top;for(const word of words){const proposed=line?line+' '+word:word;if(font.widthOfTextAtSize(proposed,9)>w){text(line,x,y,w,9);y+=13;line=word;if(y>885)break;}else line=proposed;}if(y<=885)text(line,x,y,w,9);}else if(key==='utilityDescription'){text(value,x,top,w,8);}else text(value,x,top,w,9);}
- for(const [key,[y,yesx,nox]] of Object.entries(yesNoPositions)){const v=values[key];if(v==='yes'||v==='no')text('X',v==='yes'?yesx:nox,y,12,10);}
- const final=await pdf.save();const name=(values.tractNo||currentTract||'Tract').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,55);const a=document.createElement('a');const url=URL.createObjectURL(new Blob([final],{type:'application/pdf'}));a.href=url;a.download='Pipeline_Build_Sheet_'+name+'.pdf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),12000);message('Completed PDF downloaded using the original Pipeline Build Sheet template.');
- }catch(e){message('PDF export failed: '+e.message);}}
+// Exact check-box edges; the mark is inset into the selected 9–10pt square.
+const yesNoPositions={
+ agreeable:[290.5,41.5,62.5],tenant:[308.5,41.5,62.5],
+ tenantDealt:[344.5,41.5,62.5],wetlands:[363,42,63],
+ wetlandsPermitted:[363.5,135,156],utilities:[401.5,41.5,62.5],
+ livestock:[442,41.5,62.5],roads:[460,41.5,62.5],
+ timber:[479,80.5,101.5],landownerTimber:[496.5,80.5,101.5],
+ burnTimber:[513.5,80.5,101.5],chipTimber:[531.5,80.5,101.5],
+ grazing:[550,42,63],seeding:[568,42,63],gates:[616,42,63],
+ appurtenances:[660.5,41.5,62.5],locationSketch:[679,42,63],released:[697,42,63]
+};
+async function exportPdf(){
+ if(dirty){message('Save your changes before downloading, or they will not be included.');return;}
+ if(!window.PDFLib){message('PDF library unavailable. Check internet connection and try again.');return;}
+ try{
+  const bin=atob(SOURCE_PDF_BASE64),bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+  const pdf=await PDFLib.PDFDocument.load(bytes),pg=pdf.getPages()[0],font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+  const height=pg.getHeight(),values=stored().fields||{},ink=PDFLib.rgb(.045,.07,.09);
+  // Fit text inside its measured rectangle. Never let a long phone number or
+  // contact entry overflow into the neighboring label or box.
+  function fittedText(value,x,top,width,boxHeight,preferred=9){
+   if(value===undefined||value===null||String(value)==='')return;
+   let str=String(value).replace(/[\r\n]+/g,' ').trim();
+   if(!str)return;
+   let size=Math.min(preferred,Math.max(6,boxHeight-2));
+   while(size>5.7&&font.widthOfTextAtSize(str,size)>width)size-=0.25;
+   if(font.widthOfTextAtSize(str,size)>width){
+    while(str.length>1&&font.widthOfTextAtSize(str+'...',size)>width)str=str.slice(0,-1);
+    // Helvetica does not encode the ellipsis character; use three dots instead.
+    while(str.length>1&&font.widthOfTextAtSize(str+'...',size)>width)str=str.slice(0,-1);
+    str+='...';
+   }
+   pg.drawText(str,{x,y:height-top-size,size,font,color:ink});
+  }
+  function clearTextArea(x,top,width,h){
+   pg.drawRectangle({x,y:height-top-h,width,height:h,color:PDFLib.rgb(1,1,1)});
+  }
+  function multiline(value,x,top,width,maxHeight,size=9,lineHeight=12){
+   if(!value)return;
+   let y=top;
+   for(const paragraph of String(value).replace(/\r/g,'').split('\n')){
+    let line='';
+    for(const word of paragraph.split(/\s+/)){
+     const next=line?line+' '+word:word;
+     if(line&&font.widthOfTextAtSize(next,size)>width){
+      if(y+lineHeight>top+maxHeight)return;
+      fittedText(line,x,y,width,lineHeight,size);y+=lineHeight;line=word;
+     }else{line=next;}
+    }
+    if(y+lineHeight>top+maxHeight)return;
+    fittedText(line,x,y,width,lineHeight,size);y+=lineHeight;
+   }
+  }
+  for(const [key,[x,top,w,h]] of Object.entries(pdfLocations)){
+   const v=values[key];if(v===undefined||v===null||String(v)==='')continue;
+   if(key==='project'){
+    // Mask the template's printed example project name, but retain the box outline.
+    clearTextArea(94,73,416,15);
+   }else if(key==='date'){
+    // Mask the original hard-coded example date before writing the real one.
+    clearTextArea(85,965,143,12);
+   }
+   if(key==='special')multiline(v,x,top,w,h,9,13);
+   else if(key==='utilityDescription')multiline(v,x,top,w,12,8,10);
+   else fittedText(v,x,top,w,h,9);
+  }
+  for(const [key,[top,yesX,noX]] of Object.entries(yesNoPositions)){
+   const answer=values[key];if(answer!=='yes'&&answer!=='no')continue;
+   // Every mark fits within its printed box, including the wetlands subquestion.
+   const boxX=answer==='yes'?yesX:noX;
+   fittedText('X',boxX+2.1,top+0.4,6.0,9.0,7.3);
+  }
+  const final=await pdf.save();
+  const name=(values.tractNo||currentTract||'Tract').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,55);
+  const url=URL.createObjectURL(new Blob([final],{type:'application/pdf'}));
+  const a=document.createElement('a');a.href=url;a.download='Pipeline_Build_Sheet_'+name+'.pdf';
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),12000);
+  message('Completed PDF downloaded with aligned fields and checkboxes.');
+ }catch(e){message('PDF export failed: '+e.message);}
+}
 function init(){if($('ttBuildSheetOverlay'))return;const layer=document.createElement('div');layer.id='ttBuildSheetOverlay';layer.hidden=true;let body='';for(const [name,a,b] of sections){body+='<div class="ttbs-section">'+name+'</div><div class="ttbs-grid">'+wrapRows(rows.slice(a,b))+'</div>';}
  layer.innerHTML='<div class="ttbs-panel" role="dialog" aria-modal="true" aria-label="Pipeline Build Sheet"><div class="ttbs-head"><strong>PIPELINE BUILD SHEET · TRACT FORM</strong><span style="flex:1"></span><button class="btn" type="button" id="ttbsClose">✕ Close</button></div><div class="ttbs-body">'+body+'</div><div id="ttbsMessage" class="ttbs-message"></div><div class="ttbs-foot"><button class="btn primary" id="ttbsSave" type="button">Save Form</button><button class="btn primary" id="ttbsSaveSync" type="button">Save & Sync</button><button class="btn" id="ttbsExport" type="button">⬇ Download PDF</button></div></div>';
  document.body.append(layer);$('ttbsClose').onclick=close;$('ttbsSave').onclick=saveLocal;$('ttbsSaveSync').onclick=saveAndSync;$('ttbsExport').onclick=exportPdf;layer.querySelectorAll('[data-bs-field]').forEach(el=>{el.addEventListener('input',()=>{dirty=true;message('Unsaved changes.');});el.addEventListener('change',()=>{dirty=true;message('Unsaved changes.');});});}

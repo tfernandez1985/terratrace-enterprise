@@ -1082,17 +1082,7 @@ $('cloudDownload').onclick=async()=>{try{const blob=await (await request('/backu
 $('cloudApi').value=ttVolatileStorage.getItem('ttCloudApi')||'';$('cloudProjectId').value=ttVolatileStorage.getItem('ttCloudProject')||'TEST';
 })();
 <\/script>
-<script id="tt-cad-active-feedback">
-(()=>{
- const ids=['keyinPoint','finishIntersectLines','finishLine','undo','resetCL','setStationing','redoStationing','addEquation','manageEquations'];
- function install(){
-  ids.forEach(id=>{const b=document.getElementById(id);if(!b)return;
-   b.addEventListener('click',()=>{b.classList.add('tt-cad-action-pulse');setTimeout(()=>b.classList.remove('tt-cad-action-pulse'),950);});
-  });
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-})();
-</script></body></html>`;download('TerraTrace_Photo_Pin_Report.html',new Blob([html],{type:'text/html;charset=utf-8'}));status(`Photo report exported: ${rows.length} pins with embedded pictures`)}
+</body></html>`;download('TerraTrace_Photo_Pin_Report.html',new Blob([html],{type:'text/html;charset=utf-8'}));status(`Photo report exported: ${rows.length} pins with embedded pictures`)}
 
 function editPhoto(p,index){openModal('Photo Pin',`<label>Pin label</label><input id="pinName" value="${esc(p.name)}"><label>Notes</label><input id="pinNote" value="${esc(p.note)}"><div class="note"><b>Nearest centerline station:</b> ${esc(photoPinStation(p).station)} · Offset distance: ${esc(photoPinStation(p).offset)} project units (updates automatically when centerline changes)</div><label>Priority</label><select id="pinPriority"><option value="high" ${p.priority==='high'?'selected':''}>🔴 HIGH — Red</option><option value="medium" ${p.priority==='medium'?'selected':''}>🟠 MEDIUM — Orange</option><option value="low" ${p.priority==='low'?'selected':''}>🟢 LOW — Green</option></select><label>Take photo / Choose photo</label><input type="file" id="pinFile" accept="image/*" capture="environment"><div class="note">iPad Safari can open the camera or photo library. Images are embedded in KMZ exports.</div>${p.image?`<img src="${p.image}">`:''}`,async()=>{try{p.name=$('pinName').value||'PHOTO';p.note=$('pinNote').value;p.priority=$('pinPriority').value;const f=$('pinFile').files[0];if(f){if(f.size>15*1024*1024)throw Error('Photo exceeds 15 MB.');p.image=await compressPhoto(f)}remember();if(index<0)state.photos.push(p);else state.photos[index]=p;render();if(saveCurrent()){closeModal();status('Photo pin saved (optimized JPEG)')}else{status('Photo not saved — export project backup before leaving')}}catch(e){alert(e.message)}})}window.vectorEditPhoto=i=>editPhoto({...state.photos[i]},i);window.vectorEditPoint=i=>{const p=state.points[i];openModal('CAD Point',`<label>Point name</label><input id="cadPointName" value="${esc(p.name)}">`,()=>{remember();p.name=$('cadPointName').value.trim()||p.name;render();persist();closeModal()})};
 function csvRows(text){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++}else quoted=!quoted}else if(c===','&&!quoted){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell=''}else cell+=c}row.push(cell);if(row.some(v=>v.trim()))rows.push(row);return rows};async function importCL(file){if(!file)return;try{validCRS();const rows=csvRows(await file.text());if(rows.length<3)throw Error('CSV needs a header and at least two points.');const heads=rows.shift().map(s=>s.trim().toLowerCase().replace(/[^a-z0-9]/g,''));const find=(names)=>heads.findIndex(h=>names.includes(h));const ni=find(['northing','north','y','n']),ei=find(['easting','east','x','e']);if(ni<0||ei<0)throw Error('CSV must contain Northing and Easting headers.');const pts=rows.map((r,i)=>({n:Number(r[ni]),e:Number(r[ei]),id:r[0]||String(i+1)}));if(pts.some(p=>!Number.isFinite(p.n)||!Number.isFinite(p.e)))throw Error('Invalid coordinate in CL CSV.');pts.forEach(toLL);remember();state.cl=pts;state.original=structuredClone(pts);state.stationEquations=[];render();map.fitBounds(L.latLngBounds(pts.map(coords)).pad(.2));persist();status(`Imported ${pts.length} ordered CL points`)}catch(e){alert(e.message)}finally{$('fileCL').value=''}}
@@ -3430,6 +3420,17 @@ function update(){
 }
 window.ttUpdateTractProgress=update;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+<script id="tt-cad-active-feedback">
+(()=>{
+ const ids=['keyinPoint','finishIntersectLines','finishLine','undo','resetCL','setStationing','redoStationing','addEquation','manageEquations'];
+ function install(){
+  ids.forEach(id=>{const b=document.getElementById(id);if(!b)return;
+   b.addEventListener('click',()=>{b.classList.add('tt-cad-action-pulse');setTimeout(()=>b.classList.remove('tt-cad-action-pulse'),950);});
+  });
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 </script>
 </body></html>

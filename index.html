@@ -129,7 +129,6 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
       <div class="note" id="etDrawerCurrent">Open an Enterprise cloud project to begin.</div>
       <button class="btn" type="button" id="etDrawerNew" hidden>＋ New Enterprise Project</button>
       <button class="btn" type="button" id="etDrawerSuperAdmin" hidden>▦ Super Admin Dashboard</button>
-      <button class="btn" type="button" id="etDrawerCAD">⌁ Open CAD Tools</button>
       <div class="note">Field / Viewer: CAD drawings and photo pins can sync. Imported KML / KMZ layers are local to your device and never published by your account. Export a local backup if you need those layers later.</div>
       <button class="btn primary" type="button" id="etDrawerImportKMZ">＋ Import KMZ / KML</button>
       <button class="btn" type="button" id="etDrawerAccount">Account / Company Workspace</button>
@@ -2983,11 +2982,6 @@ function install(){
  // Initial Super Admin setup is intentionally absent from the public login interface.
  $('etDrawerProjectSelect').onchange=()=>syncProjectSelect($('etDrawerProjectSelect').value);
  $('etProjectsSelect').onchange=()=>syncProjectSelect($('etProjectsSelect').value);
- $('etDrawerCAD').onclick=()=>{
-  document.querySelector('#drawer')?.classList.add('open');
-  const cadHeading=[...document.querySelectorAll('#drawer h2')].find(x=>x.textContent.trim()==='CAD');
-  if(cadHeading){const section=cadHeading.closest('details.tt-section');if(section)section.open=true;cadHeading.scrollIntoView({behavior:'smooth',block:'start'});}
- };
  $('etDrawerRefresh').onclick=wrap(refreshAll);
  $('etDrawerOpen').onclick=wrap(async()=>{const id=$('etDrawerProjectSelect').value;if(!id)throw Error('Select an Enterprise cloud project first.');await openProject(id);});
  // Expose the existing authenticated project save for tract-note persistence.

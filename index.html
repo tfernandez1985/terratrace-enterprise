@@ -2667,7 +2667,7 @@ window.terraTracePythonGIS={
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
-</script><style id="tt-enterprise-css">
+</script><style id="tt-superadmin-delete-css">#enterpriseGate .et-delete{color:#ffc1bc!important;border-color:#854b4b!important;background:#301a1c!important}#enterpriseGate .et-delete:hover{background:#522327!important}#enterpriseGate .et-entry .et-toolbar{margin-left:auto;justify-content:flex-end;flex-wrap:wrap}</style><style id="tt-enterprise-css">
 #enterpriseGate{position:fixed;z-index:50000;inset:0;background:#071018;color:#e7f5f9;font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;overflow:auto}
 #enterpriseGate[hidden]{display:none!important}#enterpriseGate.et-minimized{display:none}
 #enterpriseGate *{box-sizing:border-box}#enterpriseGate .et-wrap{width:min(1050px,calc(100% - 32px));margin:8vh auto 40px}#enterpriseGate .et-wrap h1{font-size:26px;letter-spacing:1px;margin:6px 0 8px}#enterpriseGate h2{font-size:18px;margin:18px 0 14px}#enterpriseGate .et-kicker{font-size:11px;letter-spacing:2px;color:#6ad2db;font-weight:800}#enterpriseGate .et-muted{color:#9bb5c3;font-size:12px}#enterpriseGate .et-card{background:#101e2a;border:1px solid #29495a;border-radius:12px;padding:20px;margin:12px 0}#enterpriseGate .et-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}#enterpriseGate .et-btn{border:1px solid #3a6375;border-radius:7px;color:#e6f7fc;background:#1c3646;font:inherit;cursor:pointer;padding:10px 13px}#enterpriseGate .et-btn.primary{background:#06667a}#enterpriseGate .et-btn:disabled{opacity:.4;cursor:not-allowed}#enterpriseGate .et-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}#enterpriseGate label{display:block;font-size:12px;color:#a9cad6;margin:12px 0 6px}#enterpriseGate input,#enterpriseGate select{background:#07141f;border:1px solid #375565;border-radius:7px;color:#f4ffff;padding:12px;font:inherit;min-width:0;width:100%}#enterpriseGate .et-entry{padding:12px 0;border-bottom:1px solid #2d4655;display:flex;justify-content:space-between;align-items:center;gap:12px}#enterpriseGate .et-entry:last-child{border-bottom:0}#enterpriseGate .et-warning{color:#f5d7a4;background:#2b2518;border:1px solid #675332;padding:12px;border-radius:8px;font-size:12px;margin:12px 0}#etMessage{min-height:22px;white-space:pre-wrap}#etFloating{position:fixed;z-index:49000;top:65px;right:15px;background:#0b5364;color:white;border:1px solid #59d6e7;padding:10px 15px;border-radius:9px;font-weight:750;cursor:pointer;box-shadow:0 5px 15px #0006}#etFloating[hidden]{display:none!important}#enterpriseGate [hidden]{display:none!important}
@@ -2715,7 +2715,7 @@ window.terraTracePythonGIS={
    <div id="etLogin">
     <label for="etEmail">Work email</label><input id="etEmail" type="email" autocomplete="username" placeholder="you@company.com">
     <label for="etPassword">Password</label><input id="etPassword" type="password" autocomplete="current-password" placeholder="Your TerraTrace password">
-    <div class="et-toolbar"><button class="et-btn primary" id="etLoginButton">Sign in</button><button class="et-btn" id="etSetup">One-time Super Admin setup</button></div>
+    <div class="et-toolbar"><button class="et-btn primary" id="etLoginButton">Sign in</button></div>
    </div>
    <div id="etDashboard" hidden>
     <div class="et-toolbar"><b id="etIdentity"></b><button class="et-btn" id="etRefresh">Refresh</button><button class="et-btn" id="etClose">Return to GIS Map</button><button class="et-btn" id="etChangePassword">Change Password</button><button class="et-btn" id="etLogout">Sign out</button></div>
@@ -2760,14 +2760,34 @@ function renderProjects(){const sel=$('etProjectsSelect'),old=sel.value;sel.inne
  drawerSel.innerHTML=sel.innerHTML;
  const active=projects.some(x=>x.id===old)?old:(selected&&projects.some(x=>x.id===selected.id)?selected.id:'');
  syncProjectSelect(active);
- $('etProjectsBody').innerHTML=projects.length?projects.map(p=>`<div class="et-entry"><div><b>${safe(p.name)}</b><div class="et-muted">${safe(p.company_name||p.company_id)} · revision ${p.revision}</div></div><button class="et-btn" data-et-open="${safe(p.id)}">Open on Map</button></div>`).join(''):'<p class="et-muted">No projects assigned. A company administrator can create a project and assign field users.</p>';
+ $('etProjectsBody').innerHTML=projects.length?projects.map(p=>`<div class="et-entry"><div><b>${safe(p.name)}</b><div class="et-muted">${safe(p.company_name||p.company_id)} · revision ${p.revision}</div></div><div class="et-toolbar"><button class="et-btn" data-et-open="${safe(p.id)}">Open on Map</button>${me?.role==='super_admin'?`<button class="et-btn et-delete" data-et-delete-project="${safe(p.id)}">Delete Project</button>`:''}</div></div>`).join(''):'<p class="et-muted">No projects assigned. A company administrator can create a project and assign field users.</p>';
  $('etProjectsCount').textContent=String(projects.length);
 }
-function renderCompanies(){$('etCompanyBody').innerHTML=companies.length?companies.map(c=>`<div class="et-entry"><div><b>${safe(c.name)}</b><div class="et-muted">${safe(c.id)} · ${safe(c.status)}</div></div>${me?.role==='super_admin'?`<button class="et-btn" data-et-status="${safe(c.id)}" data-current="${safe(c.status)}">${c.status==='active'?'Suspend':'Activate'}</button>`:''}</div>`).join(''):'<div class="et-muted">No companies registered yet.</div>';
+function renderCompanies(){$('etCompanyBody').innerHTML=companies.length?companies.map(c=>`<div class="et-entry"><div><b>${safe(c.name)}</b><div class="et-muted">${safe(c.id)} · ${safe(c.status)}</div></div>${me?.role==='super_admin'?`<button class="et-btn" data-et-status="${safe(c.id)}" data-current="${safe(c.status)}">${c.status==='active'?'Suspend':'Activate'}</button><button class="et-btn et-delete" data-et-delete-company="${safe(c.id)}">Delete Company</button>`:''}</div>`).join(''):'<div class="et-muted">No companies registered yet.</div>';
  $('etCompaniesCount').textContent=String(companies.length);
 }
+// These are real authenticated Worker DELETE requests, never browser-only removals.
+// The Worker must implement these routes with server-side super_admin role validation.
+async function deleteEnterpriseRecord(kind,id){
+ if(!me||me.role!=='super_admin')throw Error('Only a Super Admin can delete records.');
+ const collection={company:companies,project:projects,user:users}[kind];
+ const item=collection?.find(x=>String(x.id)===String(id));
+ if(!item)throw Error('Record not found; refresh the dashboard.');
+ const name=kind==='user'?item.email:(item.name||item.id);
+ const label={company:'company',project:'cloud project',user:'employee account'}[kind];
+ const detail=kind==='company'?' This may affect its users, projects, access assignments, and stored data.':kind==='project'?' All associated cloud project data and assignments may be lost.':' Access for this employee will be removed.';
+ const typed=prompt('PERMANENT DELETE: '+label+'\n'+name+'\n'+detail+'\n\nType DELETE to confirm:');
+ if(typed!=='DELETE')return;
+ if(!confirm('Final confirmation: delete '+label+' "'+name+'"? This may be irreversible.'))return;
+ const route={company:'companies',project:'projects',user:'users'}[kind];
+ try{await api('/v1/'+route+'/'+encodeURIComponent(id),'DELETE');}
+ catch(err){if(/HTTP 404|HTTP 405|not found|method not allowed/i.test(err.message))throw Error('Your Enterprise Worker does not support deleting '+route+' yet. No record was removed. Add a protected DELETE /v1/'+route+'/:id endpoint to the Worker.');throw err;}
+ if(kind==='project'&&selected?.id===id){selected=null;selectedRev=null;$('etSelected').textContent='Deleted project was previously open. Open another project before syncing.';}
+ if(kind==='company'&&selected?.company_id===id){selected=null;selectedRev=null;$('etSelected').textContent='Previous company was deleted. Open another project before syncing.';}
+ await refreshAll();drawerState();output('Deleted '+label+': '+name);
+}
 async function refreshUsers(){const r=await api('/v1/users');users=r.users;renderUsers();}
-function renderUsers(){$('etUsersBody').innerHTML=users.map(u=>`<div class="et-entry"><div><b>${safe(u.name)}</b><div class="et-muted">${safe(u.email)} · ${safe(u.company_id||'Global')} · ${safe(u.role)} · ${u.active?'Active':'Disabled'}</div></div>${u.role==='super_admin'?'':`<button class="et-btn" data-et-disable="${safe(u.id)}" data-active="${u.active}">${u.active?'Disable':'Enable'}</button>`}</div>`).join('')||'<div class="et-muted">No users</div>'; $('etUsersCount').textContent=String(users.length);}
+function renderUsers(){$('etUsersBody').innerHTML=users.map(u=>`<div class="et-entry"><div><b>${safe(u.name)}</b><div class="et-muted">${safe(u.email)} · ${safe(u.company_id||'Global')} · ${safe(u.role)} · ${u.active?'Active':'Disabled'}</div></div>${u.role==='super_admin'?'':`<button class="et-btn" data-et-disable="${safe(u.id)}" data-active="${u.active}">${u.active?'Disable':'Enable'}</button>${me?.role==='super_admin'?`<button class="et-btn et-delete" data-et-delete-user="${safe(u.id)}">Delete User</button>`:''}`}</div>`).join('')||'<div class="et-muted">No users</div>'; $('etUsersCount').textContent=String(users.length);}
 function companyChoice(){if(me.role!=='super_admin')return me.company_id;const list=companies.filter(c=>c.status==='active').map(c=>`${c.id} — ${c.name}`).join('\n');return prompt('Enter company workspace ID:\n'+list)||'';}
 async function newCompany(){const name=prompt('Company name');if(!name?.trim())return;const suggested=name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');const id=prompt('Company workspace ID (lowercase, unique)',suggested);if(!id)return;const r=await api('/v1/companies','POST',{id,name:name.trim()});await refreshAll();output('Created company: '+r.name);}
 async function newUser(){const company_id=companyChoice();if(!company_id)return;const name=prompt('Employee name');if(!name)return;const email=prompt('Employee email');if(!email)return;const role=prompt('Role: company_admin, management, field, viewer', 'field');if(!role)return;const password=prompt('Temporary password (12+ characters). Give it privately to the employee.');if(!password)return;await api('/v1/users','POST',{company_id,name,email,role,password});await refreshUsers();output('User created. Share credentials securely and reset the temporary password before wider rollout.');}
@@ -2913,10 +2933,10 @@ function install(){
  $('etLogout').onclick=doLogout;$('etChangePassword').onclick=wrap(changePassword);$('etFloating').onclick=openGate;$('etClose').onclick=closeGate;
  $('etRefresh').onclick=wrap(refreshAll);$('etNewCompany').onclick=wrap(newCompany);$('etManageUsers').onclick=wrap(newUser);$('etNewProject').onclick=wrap(newProject);$('etLoadProject').onclick=wrap(async()=>{const id=$('etProjectsSelect').value;if(!id)throw Error('Select a project');await openProject(id)});$('etSaveProject').onclick=wrap(saveProject);$('etGrant').onclick=wrap(setAccess);$('etRevoke').onclick=wrap(removeAccess);
  $('etAdminTab').onclick=()=>{$('etAdminSection').hidden=!$('etAdminSection').hidden;};$('etUserTab').onclick=()=>{$('etUsersSection').hidden=!$('etUsersSection').hidden;};$('etAssignTab').onclick=()=>{$('etAccessSection').hidden=!$('etAccessSection').hidden;};
- $('etProjectsBody').addEventListener('click',e=>{const id=e.target.closest('[data-et-open]')?.dataset.etOpen;if(id)wrap(()=>openProject(id))();});
- $('etCompanyBody').addEventListener('click',e=>{const b=e.target.closest('[data-et-status]');if(b)wrap(async()=>{await api(`/v1/companies/${encodeURIComponent(b.dataset.etStatus)}`,'PUT',{status:b.dataset.current==='active'?'suspended':'active'});await refreshAll();})();});
- $('etUsersBody').addEventListener('click',e=>{const b=e.target.closest('[data-et-disable]');if(b)wrap(async()=>{await api(`/v1/users/${encodeURIComponent(b.dataset.etDisable)}`,'PUT',{active:b.dataset.active!=='1'});await refreshUsers();})();});
- $('etSetup').onclick=wrap(async()=>{const key=prompt('One-time BOOTSTRAP_KEY secret configured on your new Worker (not stored)');if(!key)return;const name=prompt('Super Admin name');if(!name)return;const email=prompt('Super Admin email');if(!email)return;const password=prompt('Super Admin password (12+ characters)');if(!password)return;const r=await api('/v1/bootstrap','POST',{name,email,password},{'x-setup-key':key});output('Super Admin created. Use the login form to sign in.');});
+ $('etProjectsBody').addEventListener('click',e=>{const del=e.target.closest('[data-et-delete-project]');if(del){wrap(()=>deleteEnterpriseRecord('project',del.dataset.etDeleteProject))();return;}const id=e.target.closest('[data-et-open]')?.dataset.etOpen;if(id)wrap(()=>openProject(id))();});
+ $('etCompanyBody').addEventListener('click',e=>{const del=e.target.closest('[data-et-delete-company]');if(del){wrap(()=>deleteEnterpriseRecord('company',del.dataset.etDeleteCompany))();return;}const b=e.target.closest('[data-et-status]');if(b)wrap(async()=>{await api(`/v1/companies/${encodeURIComponent(b.dataset.etStatus)}`,'PUT',{status:b.dataset.current==='active'?'suspended':'active'});await refreshAll();})();});
+ $('etUsersBody').addEventListener('click',e=>{const del=e.target.closest('[data-et-delete-user]');if(del){wrap(()=>deleteEnterpriseRecord('user',del.dataset.etDeleteUser))();return;}const b=e.target.closest('[data-et-disable]');if(b)wrap(async()=>{await api(`/v1/users/${encodeURIComponent(b.dataset.etDisable)}`,'PUT',{active:b.dataset.active!=='true'});await refreshUsers();})();});
+ // Initial Super Admin setup is intentionally absent from the public login interface.
  $('etDrawerProjectSelect').onchange=()=>syncProjectSelect($('etDrawerProjectSelect').value);
  $('etProjectsSelect').onchange=()=>syncProjectSelect($('etProjectsSelect').value);
  $('etDrawerRefresh').onclick=wrap(refreshAll);

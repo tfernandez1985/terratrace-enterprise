@@ -135,7 +135,13 @@ function projectSnapshot(){const {history,mode,drawing,inverse,selectedLine,trim
 function saveCurrent(){const name=state.projectName;memoryProjects.set(name,structuredClone(projectSnapshot()));if(!knownProjects.includes(name))knownProjects.push(name);projectList();status('Project in memory — use Save Project or Backup ZIP to keep it');return true}
 async function refreshProjects(){knownProjects=await dbNames();projectList()}
 async function loadNamed(name){try{const obj=await dbGet(name);if(!obj)throw Error('Project not found');applyProject(obj,name);status('Opened '+name)}catch(e){alert(e.message)}}
-function applyProject(obj,name){$('showVertices').checked=false;kmzSelectedCL=null;stationingSelection=null;for(const k of ['crs','cl','original','points','photos','lines','reference','gisLibrary','annotations','stationEquations','stationingOverlay','stationingVisible','dimensions','counter','gisHiddenCategories','ownershipTracts','ownershipRows','ownershipRoute','tractFolders','tractDocuments','googleTractFolders','tractNotes','ownershipSettings'])state[k]=obj[k]??({counter:1,crs:'',stationingOverlay:null,stationingVisible:true,ownershipTracts:{},ownershipRoute:null,ownershipSettings:{},tractFolders:{},tractDocuments:{},googleTractFolders:{}}[k]??[]);state.projectName=name||obj.projectName||'Untitled Project';state.history=[];updateUndoButton();state.drawing=[];state.inverse=[];state.annotationStart=null;state.dimensionStart=[];state.selectedLine=null;state.trimTarget=null;$('proj').value=state.crs;$('epsg').value=Object.keys(EPSG_DEFS).find(code=>EPSG_DEFS[code]===state.crs)||'';$('showStationing').checked=state.stationingVisible!==false;$('stationingStart').value=state.stationingOverlay?.start!==undefined?formatStation(state.stationingOverlay.start):'0+00';projectList();if($('gisDatasetList'))gisLibraryUI();if(typeof ownershipApplyColors==='function')ownershipApplyColors();render();zoomToProject();if(typeof gisLoadedCategoryUI==='function')gisLoadedCategoryUI();if(typeof ownershipRefresh==='function')ownershipRefresh();if(typeof ttRefreshSettings==='function')ttRefreshSettings();if(typeof setMode==='function')setMode('select')}
+function applyProject(obj,name){$('showVertices').checked=false;kmzSelectedCL=null;stationingSelection=null;for(const k of ['crs','cl','original','points','photos','lines','reference','gisLibrary','annotations','stationEquations','stationingOverlay','stationingVisible','dimensions','counter','gisHiddenCategories','ownershipTracts','ownershipRows','ownershipRoute','tractFolders','tractDocuments','googleTractFolders','tractNotes','ownershipSettings'])state[k]=obj[k]??({counter:1,crs:'',stationingOverlay:null,stationingVisible:true,ownershipTracts:{},ownershipRoute:null,ownershipSettings:{},tractFolders:{},tractDocuments:{},googleTractFolders:{}}[k]??[]);state.projectName=name||obj.projectName||'Untitled Project';
+ // Restore legacy and current note formats; ownershipTracts is the canonical cloud-backed record.
+ state.tractNotes=state.tractNotes&&typeof state.tractNotes==='object'&&!Array.isArray(state.tractNotes)?state.tractNotes:{};
+ for(const [nk,nv] of Object.entries(state.ownershipTracts||{})){
+   if(Array.isArray(nv?.notes)&&!state.tractNotes[nk]?.length)state.tractNotes[nk]=structuredClone(nv.notes);
+ }
+ state.history=[];updateUndoButton();state.drawing=[];state.inverse=[];state.annotationStart=null;state.dimensionStart=[];state.selectedLine=null;state.trimTarget=null;$('proj').value=state.crs;$('epsg').value=Object.keys(EPSG_DEFS).find(code=>EPSG_DEFS[code]===state.crs)||'';$('showStationing').checked=state.stationingVisible!==false;$('stationingStart').value=state.stationingOverlay?.start!==undefined?formatStation(state.stationingOverlay.start):'0+00';projectList();if($('gisDatasetList'))gisLibraryUI();if(typeof ownershipApplyColors==='function')ownershipApplyColors();render();zoomToProject();if(typeof gisLoadedCategoryUI==='function')gisLoadedCategoryUI();if(typeof ownershipRefresh==='function')ownershipRefresh();if(typeof ttRefreshSettings==='function')ttRefreshSettings();if(typeof setMode==='function')setMode('select')}
 async function backupZip(){if(typeof JSZip==='undefined')throw Error('JSZip library is unavailable');const z=new JSZip();const snap=projectSnapshot();z.file('PROJECT.json',JSON.stringify(snap,null,2));z.file('README.txt','TerraTrace project backup. Restore with TerraTrace > Restore ZIP backup. Photos are embedded in PROJECT.json.');const blob=await z.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:5}});download(state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_TerraTrace_Backup.zip',blob);status('ZIP backup downloaded — use Safari Share/Downloads to save to On My iPad')}
 async function restoreZip(file){if(!file)return;const z=await JSZip.loadAsync(file);const item=z.file('PROJECT.json');if(!item)throw Error('ZIP does not contain PROJECT.json');const obj=JSON.parse(await item.async('string'));if(!Array.isArray(obj.cl)||!Array.isArray(obj.photos))throw Error('Invalid TerraTrace project backup');applyProject(obj,obj.projectName);await dbSet(state.projectName,projectSnapshot());await refreshProjects();status('Restored ZIP backup: '+state.projectName)}
 function setupStorageUI(){$('ipadBackup').onclick=()=>backupZip().catch(e=>alert(e.message));$('ipadRestore').onclick=()=>$('fileBackup').click();$('fileBackup').onchange=async e=>{try{await restoreZip(e.target.files[0])}catch(err){alert(err.message)}finally{e.target.value=''}}}
@@ -325,7 +331,19 @@ function setupPolygonHold(){
  function kmzAttributeRows(properties){
   return Object.entries(cleanKMZAttributes(properties)).filter(([k])=>k.toLowerCase()!=='name');
  }
- function openTractNoteEditor(key,onSaved){
+ function tractNotesForKey(key){
+  const top=Array.isArray(state.tractNotes?.[key])?state.tractNotes[key]:[];
+  const embedded=Array.isArray(state.ownershipTracts?.[key]?.notes)?state.ownershipTracts[key].notes:[];
+  const seen=new Set();
+  return [...top,...embedded].filter(note=>{if(!note||!note.text)return false;const id=note.id||String(note.createdAt||'')+'|'+String(note.text);if(seen.has(id))return false;seen.add(id);return true;});
+}
+function saveTractNotesBothPlaces(key,notes){
+  state.tractNotes=state.tractNotes&&typeof state.tractNotes==='object'&&!Array.isArray(state.tractNotes)?state.tractNotes:{};
+  state.ownershipTracts=state.ownershipTracts&&typeof state.ownershipTracts==='object'&&!Array.isArray(state.ownershipTracts)?state.ownershipTracts:{};
+  state.tractNotes[key]=notes;
+  state.ownershipTracts[key]={...(state.ownershipTracts[key]||{}),notes:structuredClone(notes)};
+}
+function openTractNoteEditor(key,onSaved){
   let layer=document.getElementById('ttTractNoteEditor');
   if(layer)layer.remove();
   layer=document.createElement('div');layer.id='ttTractNoteEditor';
@@ -352,10 +370,9 @@ function setupPolygonHold(){
    save.disabled=true;cancel.disabled=true;
    feedback.textContent='Saving note to your Enterprise cloud project...';
    if(!locallyAdded){
-     state.tractNotes=state.tractNotes||{};
-     const notes=Array.isArray(state.tractNotes[key])?state.tractNotes[key]:[];
+     const notes=tractNotesForKey(key);
      notes.push({id:'n_'+Date.now()+'_'+Math.random().toString(36).slice(2,9),text:content,author:author.value.trim()||'Team member',createdAt:new Date().toISOString()});
-     state.tractNotes[key]=notes;
+     saveTractNotesBothPlaces(key,notes);
      locallyAdded=true;
      persist();
    }
@@ -400,7 +417,7 @@ function setupPolygonHold(){
     egnyteFiles.map(d=>'<div style="padding:8px 0;border-bottom:1px solid #b4d8f2"><a style="font-weight:650;color:#006dd4;text-decoration:underline;overflow-wrap:anywhere" target="_blank" rel="noopener noreferrer" href="'+esc(d.url)+'">📄 '+esc(d.name||'Egnyte file')+'</a><span style="display:block;color:#466b8c;font-size:11px">Egnyte</span></div>').join('')+
     '</div>':'';
   const tractIsPolygon=/Polygon/.test(f.geometry?.type||'');
-  const savedNotes=tractIsPolygon?(Array.isArray(state.tractNotes?.[tractKey])?state.tractNotes[tractKey]:[]):[];
+  const savedNotes=tractIsPolygon?tractNotesForKey(tractKey):[];
   const fmtNoteDate=date=>{try{return new Date(date).toLocaleString()}catch{return String(date||'')}};
   const notesHTML=tractIsPolygon?'<section class="tt-tract-notes" style="margin-top:12px;padding:11px;border:1px solid #a6b4c2;border-radius:7px;background:#eff3f7">'+
     '<div style="display:flex;align-items:center;gap:9px;justify-content:space-between"><b style="color:#263a4a;font-size:13px">📝 TRACT NOTES ('+savedNotes.length+')</b><button type="button" class="tt-add-tract-note" style="background:#135b88;border:1px solid #0a4775;border-radius:6px;color:white;padding:7px 12px;cursor:pointer;font-weight:700">＋ Add Note</button></div>'+
@@ -2732,7 +2749,37 @@ async function newCompany(){const name=prompt('Company name');if(!name?.trim())r
 async function newUser(){const company_id=companyChoice();if(!company_id)return;const name=prompt('Employee name');if(!name)return;const email=prompt('Employee email');if(!email)return;const role=prompt('Role: company_admin, management, field, viewer', 'field');if(!role)return;const password=prompt('Temporary password (12+ characters). Give it privately to the employee.');if(!password)return;await api('/v1/users','POST',{company_id,name,email,role,password});await refreshUsers();output('User created. Share credentials securely and reset the temporary password before wider rollout.');}
 async function newProject(){const company_id=companyChoice();if(!company_id)return;const name=prompt('New cloud project name');if(!name?.trim())return;const r=await api('/v1/projects','POST',{company_id,name});await refreshAll();syncProjectSelect(r.project.id);output(`Created ${name}. Open it to work on the map.`);}
 async function openProject(id){const r=await api(`/v1/projects/${encodeURIComponent(id)}`);selected=r.project;selectedRev=r.project.revision;window.ttProject.open(r.data,r.project.name);syncProjectSelect(id);$('etSelected').textContent=`Current: ${r.project.name} · revision ${selectedRev}`;drawerState();output(`Opened ${r.project.name} from ${r.project.company_id}.`);closeGate();}
-async function saveProject(){if(!selected)throw Error('Open an Enterprise project first');if(window.ttProject.name!==selected.name)throw Error('The current map is a different local project. Reopen the intended Enterprise project before syncing.');const r=await api(`/v1/projects/${encodeURIComponent(selected.id)}`,'PUT',{revision:selectedRev,data:window.ttProject.snapshot()});selectedRev=r.revision;$('etSelected').textContent=`Current: ${selected.name} · revision ${selectedRev}`;await refreshAll();drawerState();output('Saved revision '+selectedRev+'.');}
+async function saveProject(){
+ if(!selected)throw Error('Open an Enterprise project first');
+ if(window.ttProject.name!==selected.name)throw Error('The current map is a different local project. Reopen the intended Enterprise project before syncing.');
+ const snapshot=window.ttProject.snapshot();
+ // Carry forward note history in both ownership and top-level project snapshots.
+ snapshot.ownershipTracts=snapshot.ownershipTracts||{};
+ snapshot.tractNotes=snapshot.tractNotes||{};
+ for(const [key,notes] of Object.entries(snapshot.tractNotes)){
+   if(Array.isArray(notes)&&notes.length){snapshot.ownershipTracts[key]={...(snapshot.ownershipTracts[key]||{}),notes};}
+ }
+ const projectId=selected.id;
+ const r=await api(`/v1/projects/${encodeURIComponent(projectId)}`,'PUT',{revision:selectedRev,data:snapshot});
+ selectedRev=r.revision;
+ $('etSelected').textContent=`Current: ${selected.name} · revision ${selectedRev}`;
+ // A revision increment means the request succeeded, not necessarily that new fields persisted.
+ // Read back to prove the same note IDs were retained on the server.
+ const expected=Object.entries(snapshot.ownershipTracts).flatMap(([key,v])=>(Array.isArray(v?.notes)?v.notes:[]).map(n=>({key,id:n.id,text:n.text})));
+ if(expected.length){
+   const check=await api(`/v1/projects/${encodeURIComponent(projectId)}`);
+   const stored=check.data||{};
+   const missing=expected.filter(n=>{
+     const arr=[...(stored.ownershipTracts?.[n.key]?.notes||[]),...(stored.tractNotes?.[n.key]||[])];
+     return !arr.some(item=>(n.id&&item.id===n.id)||(!n.id&&item.text===n.text));
+   });
+   if(missing.length){
+     output('Cloud revision '+selectedRev+' saved, but '+missing.length+' tract note(s) were NOT retained by the server. Do not sign out; download a project backup and check Worker persistence.',true);
+     throw Error('Cloud revision changed but '+missing.length+' tract note(s) were missing on re-read. This may require updating the Enterprise Worker. Your notes remain in this open session.');
+   }
+ }
+ await refreshAll();drawerState();output('Saved and verified cloud revision '+selectedRev+' ('+expected.length+' tract notes).');
+}
 async function setAccess(){const id=$('etProjectsSelect').value;if(!id)throw Error('Select a project first');if(!['super_admin','company_admin','management'].includes(me.role))throw Error('Permission denied');const p=projects.find(x=>x.id===id);if(!p)throw Error('Project not found');const relevant=users.filter(u=>u.company_id===p.company_id);const email=prompt('Enter employee email to grant access:\n'+relevant.map(u=>u.email+' ('+u.role+')').join('\n'));if(!email)return;const u=relevant.find(x=>x.email.toLowerCase()===email.toLowerCase());if(!u)throw Error('User not found in this company.');await api(`/v1/projects/${encodeURIComponent(id)}/access`,'PUT',{user_id:u.id});output('Project assigned to '+email);}
 async function removeAccess(){const id=$('etProjectsSelect').value;if(!id)throw Error('Select a project first');const p=projects.find(x=>x.id===id),access=await api(`/v1/projects/${encodeURIComponent(id)}/access`);const assigned=users.filter(u=>u.company_id===p.company_id&&access.users.includes(u.id));const email=prompt('Remove access for which email?\n'+assigned.map(u=>u.email).join('\n'));if(!email)return;const u=assigned.find(x=>x.email.toLowerCase()===email.toLowerCase());if(!u)throw Error('User not assigned.');await api(`/v1/projects/${encodeURIComponent(id)}/access`,'DELETE',{user_id:u.id});output('Removed project assignment.');}
 function closeGate(){if(!me)return;$app.classList.add('et-minimized');$('etFloating').hidden=false;}

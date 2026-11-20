@@ -129,6 +129,7 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
       <div class="note" id="etDrawerCurrent">Open an Enterprise cloud project to begin.</div>
       <button class="btn" type="button" id="etDrawerNew" hidden>＋ New Enterprise Project</button>
       <button class="btn" type="button" id="etDrawerSuperAdmin" hidden>▦ Super Admin Dashboard</button>
+      <button class="btn" type="button" id="etDrawerCAD">⌁ Open CAD Tools</button>
       <button class="btn primary" type="button" id="etDrawerImportKMZ">＋ Import KMZ / KML</button>
       <button class="btn" type="button" id="etDrawerAccount">Account / Company Workspace</button>
     </div>
@@ -2739,13 +2740,13 @@ const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const ENTERPRISE_WORKER_URL='https://terratrace-enterprise-dev.supersurveyor1985.workers.dev';
 let token='',me=null,selected=null,selectedRev=null,projects=[],companies=[],users=[],view='projects';
 const canEdit=()=>!!me&&['super_admin','company_admin','management'].includes(me.role);
-function drawerState(){const panel=$('etDrawerProjects');if(!panel)return;panel.hidden=!me;if(!me)return;$('etDrawerIdentity').textContent=`${me.name} · ${me.role} · ${me.company_id||'All companies'}`;$('etDrawerSuperAdmin').hidden=me.role!=='super_admin';$('etDrawerNew').hidden=!canEdit();$('etDrawerSync').hidden=false;$('etDrawerCurrent').textContent=selected?`Current: ${selected.name} · revision ${selectedRev}`:'Open an Enterprise cloud project to begin.';}
+function drawerState(){const panel=$('etDrawerProjects');if(!panel)return;panel.hidden=!me;if(!me)return;$('etDrawerIdentity').textContent=`${me.name} · ${me.role} · ${me.company_id||'All companies'}`;$('etDrawerSuperAdmin').hidden=me.role!=='super_admin';$('etDrawerNew').hidden=!canEdit();$('etDrawerSync').hidden=false;$('etDrawerSync').textContent=me.role==='viewer'?'↻ Sync CAD + Paperwork':'↻ Sync Changes';$('etDrawerCurrent').textContent=selected?`Current: ${selected.name} · revision ${selectedRev}`:'Open an Enterprise cloud project to begin.';}
 function syncProjectSelect(value){$('etProjectsSelect').value=value||'';$('etDrawerProjectSelect').value=value||'';}
 const $app=$('enterpriseGate');
 const apiUrl=()=>ENTERPRISE_WORKER_URL;
 window.terraTraceEnterpriseRequest=(path,method='GET',body=null)=>api(path,method,body);
 function output(s,warning=false){$('etMessage').textContent=s;$('etMessage').style.color=warning?'#ffbd9d':'#94d6cc';}
-function dashboard(){window.ttEnterpriseRole=me?.role||'';window.dispatchEvent(new Event('tt-enterprise-role'));const show=!!me;$('enterpriseGate').classList.toggle('et-logged-in',show);$('etLogin').hidden=show;$('etDashboard').hidden=!show;$('etIdentity').textContent=show?`${me.name} · ${me.role} · ${me.company_id||'All companies'}`:'';$('etLogout').hidden=!show;$('etAdminTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etUserTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etAssignTab').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etNewProject').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etSaveProject').hidden=!show;$('etNewCompany').hidden=!show||me.role!=='super_admin';$('etManageUsers').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etProjectsSelect').hidden=!show;drawerState();}
+function dashboard(){window.ttEnterpriseRole=me?.role||'';window.dispatchEvent(new Event('tt-enterprise-role'));const show=!!me;$('enterpriseGate').classList.toggle('et-logged-in',show);$('etLogin').hidden=show;$('etDashboard').hidden=!show;$('etIdentity').textContent=show?`${me.name} · ${me.role} · ${me.company_id||'All companies'}`:'';$('etLogout').hidden=!show;$('etAdminTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etUserTab').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etAssignTab').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etNewProject').hidden=!show||!['super_admin','company_admin','management'].includes(me.role);$('etSaveProject').hidden=!show;$('etSaveProject').textContent=me?.role==='viewer'?'Sync CAD + Paperwork':'Sync Changes';$('etNewCompany').hidden=!show||me.role!=='super_admin';$('etManageUsers').hidden=!show||!['super_admin','company_admin'].includes(me.role);$('etProjectsSelect').hidden=!show;drawerState();}
 async function api(path,method='GET',body=null,extra={}){
  const url=apiUrl();if(!/^https?:\/\//.test(url))throw Error('Invalid Enterprise Worker configuration');
  const headers={...extra};if(token)headers.authorization=`Bearer ${token}`;
@@ -2846,8 +2847,37 @@ async function saveViewerPaperwork(){
  drawerState();output('Viewer paperwork saved and verified · '+changes.length+' update(s), revision '+selectedRev+'.');
  return {revision:selectedRev};
 }
+// CAD editing is available to Field and Viewer users on projects assigned to them.
+// Viewers save only the CAD-specific fields below; all other project data remains server-owned.
+const TT_CAD_SYNC_FIELDS=['cl','original','points','lines','annotations','dimensions',
+ 'stationEquations','stationingOverlay','stationingVisible','counter'];
+async function saveViewerCAD(){
+ if(!me||me.role!=='viewer'||!selected)throw Error('Open an assigned project first.');
+ if(window.ttProject.name!==selected.name)throw Error('Reopen the assigned Enterprise project before syncing.');
+ const local=window.ttProject.snapshot();
+ const latest=await api(`/v1/projects/${encodeURIComponent(selected.id)}`);
+ const before=latest.data||{};const changes={};
+ for(const field of TT_CAD_SYNC_FIELDS){
+  if(JSON.stringify(local[field]??null)!==JSON.stringify(before[field]??null))changes[field]=local[field]??null;
+ }
+ if(!Object.keys(changes).length){selectedRev=latest.project.revision;return;}
+ const saved=await api(`/v1/projects/${encodeURIComponent(selected.id)}/cad-content`,'POST',{
+  revision:latest.project.revision,changes
+ });
+ const verified=await api(`/v1/projects/${encodeURIComponent(selected.id)}`);
+ for(const field of Object.keys(changes)){
+  if(JSON.stringify(verified.data?.[field]??null)!==JSON.stringify(changes[field]))
+   throw Error('CAD cloud verification failed for '+field+'. Keep a local backup.');
+ }
+ selectedRev=saved.revision;
+ $('etSelected').textContent=`Current: ${selected.name} · revision ${selectedRev}`;
+ drawerState();output('Viewer CAD changes saved and verified · revision '+selectedRev+'.');
+}
 async function saveProject(){
- if(me?.role==='viewer')return saveViewerPaperwork();
+ if(me?.role==='viewer'){
+  await saveViewerCAD();
+  return saveViewerPaperwork();
+ }
  if(!selected)throw Error('Open an Enterprise project first');
  if(window.ttProject.name!==selected.name)throw Error('The current map is a different local project. Reopen the intended Enterprise project before syncing.');
  const snapshot=window.ttProject.snapshot();
@@ -2939,6 +2969,11 @@ function install(){
  // Initial Super Admin setup is intentionally absent from the public login interface.
  $('etDrawerProjectSelect').onchange=()=>syncProjectSelect($('etDrawerProjectSelect').value);
  $('etProjectsSelect').onchange=()=>syncProjectSelect($('etProjectsSelect').value);
+ $('etDrawerCAD').onclick=()=>{
+  document.querySelector('#drawer')?.classList.add('open');
+  const cadHeading=[...document.querySelectorAll('#drawer h2')].find(x=>x.textContent.trim()==='CAD');
+  if(cadHeading){const section=cadHeading.closest('details.tt-section');if(section)section.open=true;cadHeading.scrollIntoView({behavior:'smooth',block:'start'});}
+ };
  $('etDrawerRefresh').onclick=wrap(refreshAll);
  $('etDrawerOpen').onclick=wrap(async()=>{const id=$('etDrawerProjectSelect').value;if(!id)throw Error('Select an Enterprise cloud project first.');await openProject(id);});
  // Expose the existing authenticated project save for tract-note persistence.

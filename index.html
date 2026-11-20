@@ -3337,8 +3337,31 @@ function update(){
  const unique=[...new Set(rows.map(r=>r?.key).filter(k=>typeof k==='string'&&k))];
  const total=unique.length;const flags=snap.ownershipTracts&&typeof snap.ownershipTracts==='object'?snap.ownershipTracts:{};
  const counts=Object.fromEntries(specs.map(x=>[x.key,0]));
- for(const key of unique){const v=flags[key]||{};let any=false;for(const k of specs.slice(0,5).map(x=>x.key)){const yes=!!(v[k]||(k==='attorneyReview'&&v.condemned));if(yes){counts[k]++;any=true;}}if(any)counts.overall++;}
- for(const spec of specs){const tile=nodes[spec.key],percent=total?Math.round(100*counts[spec.key]/total):0;tile.querySelector('.tt-stat-value').textContent=percent+'%';tile.querySelector('.tt-stat-count').textContent=counts[spec.key]+' / '+total+' tracts';tile.title=spec.label+': '+counts[spec.key]+' of '+total+' unique crossed tracts ('+percent+'%)';tile.setAttribute('aria-label',tile.title);}
+ // Overall is a stage-weighted completion score, not merely "has any status".
+ // A paid tract is 100% complete regardless of which earlier boxes were checked.
+ // Unpaid tracts never count as fully complete; attorney review is an intermediate step.
+ const stageWeights={surveyPermission:20,negotiating:40,attorneyReview:60,closed:80,paid:100};
+ let totalProgress=0;
+ for(const key of unique){
+  const v=flags[key]||{};
+  let stage=0;
+  for(const k of specs.slice(0,5).map(x=>x.key)){
+   const yes=!!(v[k]||(k==='attorneyReview'&&v.condemned));
+   if(yes){counts[k]++;stage=Math.max(stage,stageWeights[k]);}
+  }
+  totalProgress+=stage;
+ }
+ counts.overall=counts.paid;
+ for(const spec of specs){
+  const tile=nodes[spec.key];
+  const percent=total?Math.round(spec.key==='overall'?totalProgress/total:100*counts[spec.key]/total):0;
+  tile.querySelector('.tt-stat-value').textContent=percent+'%';
+  tile.querySelector('.tt-stat-count').textContent=spec.key==='overall'?(counts.paid+' / '+total+' paid'):(counts[spec.key]+' / '+total+' tracts');
+  tile.title=spec.key==='overall'
+   ?'Overall land acquisition: '+percent+'% complete; '+counts.paid+' of '+total+' tracts paid. Only all tracts paid equals 100%.'
+   :spec.label+': '+counts[spec.key]+' of '+total+' unique crossed tracts ('+percent+'%)';
+  tile.setAttribute('aria-label',tile.title);
+ }
 }
 window.ttUpdateTractProgress=update;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();

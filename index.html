@@ -141,7 +141,13 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 #drawer #ttSidebarIntegrityLogo{display:flex;align-items:center;justify-content:center;margin:16px 0 26px;padding:12px 8px 16px;border-top:1px solid #2a4052;pointer-events:none}
 #drawer #ttSidebarIntegrityLogo img{display:block;width:100%;max-width:290px;height:auto;max-height:145px;object-fit:contain;filter:drop-shadow(0 3px 9px rgba(0,0,0,.48))}
 #enterpriseGate #ttLoginCompanyLogo img{max-height:230px;object-fit:contain}
-</style></head><body><div id="map"></div><img id="ttLogoOverlay" alt="Project logo" hidden><header><button id="menuBtn" class="btn">☰ Commands</button><h1>TerraTrace <b>Field Software</b></h1><span class="tt-powered">Powered by Integrity Positions LLC</span><div class="status" id="status">READY</div></header><aside class="drawer open" id="drawer"><section id="etDrawerProjects" hidden aria-label="Enterprise Cloud Projects">
+</style><style id="tt-login-data-disclaimer-style">
+#enterpriseGate #ttLoginDataDisclaimer{margin-top:24px;padding-top:17px;border-top:1px solid rgba(150,170,180,.25);text-align:center;color:#9aaab4;font-size:11px;line-height:1.65;max-width:620px;margin-left:auto;margin-right:auto}
+#enterpriseGate #ttLoginDataDisclaimer strong{display:block;color:#c4d0d6;font-size:10px;letter-spacing:1.7px;font-weight:700;margin-bottom:7px}
+#enterpriseGate #ttLoginDataDisclaimer p{margin:0}
+@media(max-width:600px){#enterpriseGate #ttLoginDataDisclaimer{font-size:10px;line-height:1.55;margin-top:19px;padding-top:14px}}
+</style>
+</head><body><div id="map"></div><img id="ttLogoOverlay" alt="Project logo" hidden><header><button id="menuBtn" class="btn">☰ Commands</button><h1>TerraTrace <b>Field Software</b></h1><span class="tt-powered">Powered by Integrity Positions LLC</span><div class="status" id="status">READY</div></header><aside class="drawer open" id="drawer"><section id="etDrawerProjects" hidden aria-label="Enterprise Cloud Projects">
   <details class="tt-section" open>
     <summary>ENTERPRISE CLOUD PROJECTS</summary>
     <div class="tt-section-body">
@@ -2749,6 +2755,10 @@ window.terraTracePythonGIS={
     <label for="etEmail">Work email</label><input id="etEmail" type="email" autocomplete="username" placeholder="you@company.com">
     <label for="etPassword">Password</label><input id="etPassword" type="password" autocomplete="current-password" placeholder="Your TerraTrace password">
     <div class="et-toolbar"><button class="et-btn primary" id="etLoginButton">Sign in</button></div>
+    <div id="ttLoginDataDisclaimer" role="note" aria-label="Data disclaimer">
+      <strong>DATA DISCLAIMER</strong>
+      <p>TerraTrace GIS utilizes publicly available geographic and property data provided by third-party sources. Information is provided for reference and preliminary planning purposes only and should not be relied upon for legal boundary determination, construction, engineering, or final surveying decisions. All information should be independently verified.</p>
+    </div>
    </div>
    <div id="etDashboard" hidden>
     <div class="et-toolbar"><b id="etIdentity"></b><button class="et-btn" id="etRefresh">Refresh</button><button class="et-btn" id="etClose">Return to GIS Map</button><button class="et-btn" id="etChangePassword">Change Password</button><button class="et-btn" id="etLogout">Sign out</button></div>

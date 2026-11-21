@@ -1974,6 +1974,108 @@ function ownershipRefresh(){
   tr.style.borderLeft='5px solid '+ownershipColor(f);if(active){tr.style.color='#fff';tr.style.fontWeight='600';}frag.append(tr)});
  host.append(frag);
 }
+let ttPrelimPicking=false;
+document.addEventListener('click',e=>{if(e.target?.id==='ttPrelimPlats'){
+ ttPrelimPicking=true;ownershipPicking=true;ownershipStartClick=null;
+ setMode('gisPickLine');status('PRELIMINARY PLATS: Click the pipeline centerline to generate exhibits only for intersected tracts.');toggle(false);
+}});
+function ttGeneratePrelimPlats(){
+ const rows=state.ownershipRows||[], route=state.ownershipRoute;
+ if(!rows.length||!route?.length)return alert('First use Ownership → Pick Line → Load Parcels + Stationing.');
+ const w=Number(prompt('Permanent ROW total width in feet (centered on CL):', '50'));
+ if(!Number.isFinite(w)||w<=0)return;
+ const tempRaw=prompt('Temporary ROW width in feet (0 for permanent only):', '50');
+ if(tempRaw===null)return;
+ const tempW=Number(tempRaw);
+ if(!Number.isFinite(tempW)||tempW<0)return alert('Enter a valid temporary ROW width.');
+ const sideRaw=tempW?prompt('Preferred temporary ROW side looking in increasing station direction: LEFT or RIGHT', 'RIGHT'):null;
+ if(tempW&&sideRaw===null)return;
+ const preferred=(sideRaw||'RIGHT').trim().toUpperCase();
+ if(tempW&&!['LEFT','RIGHT'].includes(preferred))return alert('Choose LEFT or RIGHT.');
+ const parcels=(state.reference||[]).filter(g=>g._ownershipSearch).flatMap(g=>g.features||[]);
+ const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const projected=route.map(ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]});
+ const cum=[0];for(let i=1;i<projected.length;i++)cum.push(cum[i-1]+Math.hypot(projected[i][0]-projected[i-1][0],projected[i][1]-projected[i-1][1]));
+ const pointAt=t=>{let i=1;while(i<cum.length-1&&cum[i]<t)i++;const a=projected[i-1],b=projected[i],u=Math.max(0,Math.min(1,(t-cum[i-1])/(cum[i]-cum[i-1]||1)));return [a[0]+u*(b[0]-a[0]),a[1]+u*(b[1]-a[1])]};
+ const bearing=(a,b)=>{let ang=(Math.atan2(b[0]-a[0],b[1]-a[1])*180/Math.PI+360)%360;let ns=ang<=90||ang>=270?'N':'S',ew=ang<=180?'E':'W';let v=ang<=90?ang:ang<=180?180-ang:ang<=270?ang-180:360-ang;let deg=Math.floor(v),min=Math.floor((v-deg)*60),sec=Math.round(((v-deg)*60-min)*60);if(sec===60){sec=0;min++}if(min===60){min=0;deg++}return `${ns} ${String(deg).padStart(2,'0')}°${String(min).padStart(2,'0')}'${String(sec).padStart(2,'0')}" ${ew}`};
+ const sheet=rows.map((r,idx)=>{
+  const f=parcels.find(f=>ownershipKey(f)===r.key);
+  const prop=f?.properties||{};
+  const path=[r.entry,...cum.filter(x=>x>r.entry+.001&&x<r.exit-.001),r.exit].map(pointAt);
+  const seg=path.slice(1).map((b,i)=>({a:path[i],b,d:Math.hypot(b[0]-path[i][0],b[1]-path[i][1]),br:bearing(path[i],b)}));
+  let rings=[];if(f?.geometry){const geo=f.geometry.coordinates;const poly=f.geometry.type==='Polygon'?geo:geo.flatMap(x=>x);for(const ring of poly){try{rings.push(ring.map(ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]}))}catch(e){}}}
+  // Fit each sheet to the crossing, NOT to the full source parcel extent.
+  const xs=path.map(p=>p[0]),ys=path.map(p=>p[1]);
+  let minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+  const span=Math.max(maxx-minx,maxy-miny,1),pad=Math.max(w*2,span*.18,65);
+  minx-=pad;maxx+=pad;miny-=pad;maxy+=pad;
+  // Keep equal ground-distance scale horizontally and vertically.
+  const cx=(minx+maxx)/2,cy=(miny+maxy)/2,unit=Math.max((maxx-minx)/900,(maxy-miny)/600);
+  minx=cx-450*unit;maxx=cx+450*unit;miny=cy-300*unit;maxy=cy+300*unit;
+  const tx=p=>[(p[0]-minx)/unit,600-(p[1]-miny)/unit];
+  // Clip parcel boundary segments to the local exhibit window; do not draw whole parcel.
+  const clipSegment=(a,b)=>{
+   let t0=0,t1=1,dx=b[0]-a[0],dy=b[1]-a[1];
+   for(const [pp,qq] of [[-dx,a[0]-minx],[dx,maxx-a[0]],[-dy,a[1]-miny],[dy,maxy-a[1]]]){
+    if(Math.abs(pp)<1e-12){if(qq<0)return null;continue}
+    const t=qq/pp;if(pp<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);if(t0>t1)return null;
+   }
+   return [[a[0]+t0*dx,a[1]+t0*dy],[a[0]+t1*dx,a[1]+t1*dy]];
+  };
+  const polySVG=rings.map(ring=>ring.slice(1).map((b,i)=>{
+   const clipped=clipSegment(ring[i],b);if(!clipped)return '';
+   return `<line x1="${tx(clipped[0])[0].toFixed(1)}" y1="${tx(clipped[0])[1].toFixed(1)}" x2="${tx(clipped[1])[0].toFixed(1)}" y2="${tx(clipped[1])[1].toFixed(1)}" stroke="#333" stroke-width="1.8"/>`;
+  }).join('')).join('');
+  // Evaluate both workspace sides against the full subject parcel at short station intervals.
+  // Project XY must be a feet-based CRS, as used by the existing ownership stationing.
+  const containsXY=q=>{try{return !!f&&turf.booleanPointInPolygon(turf.point(proj4(state.crs,WGS,q)),f)}catch(e){return false}};
+  const offsetAt=(t,d)=>{
+   const step=Math.min(1,Math.max(.05,(r.exit-r.entry)/1000));
+   const a=pointAt(Math.max(0,t-step)),b=pointAt(Math.min(cum[cum.length-1],t+step));
+   const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1,p=pointAt(t);
+   return [p[0]-dy/len*d,p[1]+dx/len*d];
+  };
+  const polyline=(pts,color,width,dash='')=>pts.length<2?'':`<polyline points="${pts.map(p=>tx(p).map(n=>n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${width}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+  const n=Math.max(2,Math.ceil((r.exit-r.entry)/Math.min(10,Math.max(2,tempW/4||10))));
+  const samples=Array.from({length:n+1},(_,i)=>r.entry+(r.exit-r.entry)*i/n);
+  const permLeft=samples.map(t=>offsetAt(t,w/2)),permRight=samples.map(t=>offsetAt(t,-w/2));
+  let permConflict=0,tempConflict=0,switches=0,active=preferred==='LEFT'?1:-1,previous=active;
+  const tempPaths=[],tempTransitions=[],sideSegments=[];
+  let current=[];
+  const flush=()=>{if(current.length>1)tempPaths.push(current);current=[]};
+  for(let i=0;i<samples.length;i++){
+   const t=samples[i];
+   if(!containsXY(permLeft[i])||!containsXY(permRight[i]))permConflict++;
+   if(!tempW)continue;
+   const fits=side=>[.1,.5,.9,1].every(k=>containsXY(offsetAt(t,side*(w/2+tempW*k))));
+   const left=fits(1),right=fits(-1);
+   // Stay on the current side when possible; switch only to avoid an additional parcel.
+   // Return to preferred side when it becomes feasible again.
+   let chosen=active;
+   const prefer=preferred==='LEFT'?1:-1;
+   if(chosen!==prefer&&fits(prefer))chosen=prefer;
+   else if(!fits(chosen)&&fits(-chosen))chosen=-chosen;
+   if(!left&&!right){tempConflict++;flush();sideSegments.push({t,side:0});continue}
+   if(chosen!==previous){flush();switches++;tempTransitions.push(t)}
+   const edge=offsetAt(t,chosen*(w/2+tempW));
+   if(!current.length)current.push(offsetAt(t,chosen*w/2));
+   current.push(edge);active=chosen;previous=chosen;sideSegments.push({t,side:chosen});
+  }
+  flush();
+  const permSVG=polyline(permLeft,'#2563a1',2,'8 4')+polyline(permRight,'#2563a1',2,'8 4');
+  const tempSVG=tempPaths.map(pts=>polyline(pts,'#b7791f',2,'6 4')).join('')+tempTransitions.map(t=>{const p=tx(pointAt(t));return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="7" fill="#f59e0b" stroke="#111"/><text x="${(p[0]+9).toFixed(1)}" y="${(p[1]-9).toFixed(1)}" font-size="13">TEMP SIDE SWITCH</text>`}).join('');
+  const lineSVG=permSVG+tempSVG+`<polyline points="${path.map(p=>tx(p).map(n=>n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="#d71935" stroke-width="4"/>`;
+  const warning=(permConflict?'Permanent ROW may extend outside subject parcel. ':'')+(tempConflict?'Neither temporary ROW side fits at some stations. ':'')+(switches?`${switches} temporary ROW side switch(es) shown. `:'')+'All ROW geometry and transitions require survey/engineering review.';
+
+  const rowsHTML=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${escape(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');
+  const thence=seg.map(v=>`THENCE ${escape(v.br)}, a distance of ${v.d.toFixed(2)} feet to a point;`).join('<br>');
+  const source=Object.entries(prop).filter(([k,v])=>/deed|instrument|volume|page|abstract|survey|county/i.test(k)&&typeof v!=='object'&&String(v).length<120).slice(0,8).map(([k,v])=>`${escape(k)}: ${escape(v)}`).join(' · ');
+  return `<section class="sheet"><div class="heading">${escape(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${escape(r.owner||'OWNER NOT AVAILABLE')} · ${escape(r.parcel||'PARCEL ID NOT AVAILABLE')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${polySVG}${lineSVG}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${rowsHTML}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at the proposed centerline entry into the mapped tract, at grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at the proposed centerline exit from the mapped tract, at grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry station: ${escape(ownershipFormatStation(r.entry))}<br>Exit station: ${escape(ownershipFormatStation(r.exit))}<br>Centerline length: ${r.length.toFixed(2)} feet<br>Rodage: ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW: ${w.toFixed(2)} feet (±${(w/2).toFixed(2)} feet from CL)<br>Temporary ROW: ${tempW.toFixed(2)} feet · preferred ${escape(preferred)}<br>Automatic side switches: ${switches}<br><b>Review:</b> ${escape(warning)}<br>Approx. permanent ROW area (length × width): ${(r.length*w/43560).toFixed(3)} acres</p><h3>AVAILABLE PARCEL RECORD ATTRIBUTES</h3><p>${source||'No deed, survey, or abstract details available in loaded GIS attributes.'}</p><p>Map geometry from current TerraTrace project GIS parcels and centerline.</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>Parcel GIS boundaries may be approximate. Permanent acreage is a nominal length × width estimate, not a surveyed/clipped easement area. Temporary acreage is not calculated. Offset geometry is conceptual and may extend beyond parcel limits; side-switch transitions are not engineered. Grid bearings and coordinates depend on project CRS. No monument ties, deed calls, survey certification, or legal description are asserted. Verify all source records, boundaries, easement geometry, and measurements before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
+ }).join('');
+ const html=`<!doctype html><html><head><meta charset="utf-8"><title>TerraTrace Preliminary Plats</title><style>@page{size:landscape;margin:9mm}body{font:12px Arial;color:#111;margin:0}.sheet{box-sizing:border-box;break-after:page;page-break-after:always;padding:12px;min-height:95vh;border:3px double #111}.heading{text-align:center;font-size:18px;font-weight:bold}.sub{text-align:center;margin:7px}.map{height:43vh;border:1px solid #333}.map svg{height:100%;width:100%}.twocol{display:grid;grid-template-columns:1.4fr 1fr;gap:22px;font-size:11px}.twocol h3{font-size:12px;border-bottom:1px solid #222;margin:9px 0 4px}.twocol p{line-height:1.35;margin:4px 0}table{border-collapse:collapse}td,th{border:1px solid #333;padding:3px 8px}footer{border-top:2px solid #111;margin-top:10px;font-size:10px}footer b{display:block;text-align:center;margin:7px}@media screen{body{background:#ddd}.sheet{background:white;max-width:1200px;margin:20px auto;min-height:760px}}@media print{.sheet{min-height:0}.sheet:last-child{break-after:auto}}</style></head><body>${sheet}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500))<\/script></body></html>`;
+ const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(state.projectName||'TERRATRACE').replace(/[^a-z0-9_-]/gi,'_')+'_PRELIMINARY_PLATS.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+ alert('Preliminary plat package downloaded as HTML. Open it in a browser and choose Print → Save as PDF. Review all dimensions and parcel records before use.');
+}
 function ownershipCSV(){const rows=state.ownershipRows||[];if(!rows.length)return alert('Generate parcel stationing first.');const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const data=[OWNERSHIP_HEADERS,...rows.map(row=>{const flags=ownershipFlags(row.key);return [row.owner,ownershipFormatStation(row.entry),ownershipFormatStation(row.exit),row.length.toFixed(2),row.rods.toFixed(2),...OWNERSHIP_FIELDS.map(k=>flags[k]?'YES':'')];})].map(line=>line.map(quote).join(',')).join('\r\n');download(state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_OWNERSHIP_PARCEL_STATIONS.csv',new Blob(['\ufeff'+data],{type:'text/csv;charset=utf-8'}));}
 function ownershipRouteSelected(){
  ownershipPicking=false;
@@ -1981,7 +2083,7 @@ function ownershipRouteSelected(){
  route=structuredClone(route);
  if(ownershipStartClick){const click=[ownershipStartClick.lng,ownershipStartClick.lat];const d=p=>Math.hypot(p[0]-click[0],p[1]-click[1]);if(d(route[route.length-1])<d(route[0]))route.reverse()}
  state.ownershipRoute=route;ownershipStartClick=null;
- ownershipFetchForRoute().catch(e=>{alert('Ownership: '+e.message);console.error(e)});
+ ownershipFetchForRoute().catch(e=>{ttPrelimPicking=false;alert('Ownership: '+e.message);console.error(e)});
 }
 async function ownershipFetchForRoute(){
  if(ownershipLoading)return;ownershipLoading=true;const btn=$('ownershipPick');btn.disabled=true;
@@ -2011,12 +2113,19 @@ async function ownershipFetchForRoute(){
   state.reference=state.reference.filter(g=>!g._ownershipSearch);
   state.reference.push({type:'FeatureCollection',_sourceName:'OWNERSHIP LAND PARCELS',_ownershipSearch:true,_terraGISSearch:true,_visible:true,features:found});
   state.ownershipRows=rows;
-  ownershipApplyColors();render();persist();ownershipRefresh();$('ownershipOverlay').style.display='flex';setMode('select');status('Ownership: '+rows.length+' parcel crossings ready. Press Sync Project to share.');
- }finally{ownershipLoading=false;btn.disabled=false}
+  ownershipApplyColors();render();persist();ownershipRefresh();setMode('select');
+  if(ttPrelimPicking){
+   ttPrelimPicking=false;
+   status('Preliminary Plats: '+rows.length+' centerline crossings detected.');
+   ttGeneratePrelimPlats();
+  }else{
+   $('ownershipOverlay').style.display='flex';status('Ownership: '+rows.length+' parcel crossings ready. Press Sync Project to share.');
+  }
+ }finally{ownershipLoading=false;btn.disabled=false;ttPrelimPicking=false}
 }
 function ownershipUI(){
  const drawer=$('drawer');const section=document.createElement('details');section.className='tt-section';section.id='ownershipSection';
- section.innerHTML='<summary>OWNERSHIP (LAND-SURVEY ONLY)</summary><div class="tt-section-body"><div class="note">Pick a complete CL/CAD/KMZ line. TerraTrace loads the actual, complete GIS parcel polygons intersected by the line (not a buffer), calculates stations, and saves tract progress with the project.</div><button class="btn primary" id="ownershipPick">⌁ Pick Line → Load Parcels + Stationing</button><button class="btn" id="ownershipOpen">View / Edit Ownership Table</button><button class="btn" id="ownershipExport">Export Ownership CSV</button><button class="btn" id="ownershipLink" type="button">🔗 Link Tracts (Egnyte)</button><button class="btn" id="ownershipLinkGoogle" type="button">🔗 Link Tracts (Google Drive)</button><div class="note">Choose Egnyte or Google Drive below to link documents directly to a tract. Customize all five ownership colors under SETTINGS. In Attorney Review replaces Condemned. Complete parcel polygons fill at 50% opacity; no buffer polygon is displayed. Press Sync Project to share changes.</div><div class="note" id="ownershipSummary">No parcel stationing calculated.</div></div>';
+ section.innerHTML='<summary>OWNERSHIP (LAND-SURVEY ONLY)</summary><div class="tt-section-body"><div class="note">Pick a complete CL/CAD/KMZ line. TerraTrace loads the actual, complete GIS parcel polygons intersected by the line (not a buffer), calculates stations, and saves tract progress with the project.</div><button class="btn primary" id="ownershipPick">⌁ Pick Line → Load Parcels + Stationing</button><button class="btn" id="ownershipOpen">View / Edit Ownership Table</button><button class="btn" id="ownershipExport">Export Ownership CSV</button><button class="btn primary" id="ttPrelimPlats" type="button">▤ Generate Preliminary Plats → Pick CL</button><button class="btn" id="ownershipLink" type="button">🔗 Link Tracts (Egnyte)</button><button class="btn" id="ownershipLinkGoogle" type="button">🔗 Link Tracts (Google Drive)</button><div class="note">Choose Egnyte or Google Drive below to link documents directly to a tract. Customize all five ownership colors under SETTINGS. In Attorney Review replaces Condemned. Complete parcel polygons fill at 50% opacity; no buffer polygon is displayed. Press Sync Project to share changes.</div><div class="note" id="ownershipSummary">No parcel stationing calculated.</div></div>';
  // Keep Ownership at drawer root; do not nest it inside Project / Coordinates.
  drawer.prepend(section);
  section.open=false;

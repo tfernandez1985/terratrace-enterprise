@@ -1987,9 +1987,6 @@ function ttGeneratePrelimPlats(){
  const raw=prompt('Additional TEMP ROW width (feet, outside permanent ROW; 0 for none):','50');
  if(raw===null)return;
  const tw=Number(raw);if(!Number.isFinite(tw)||tw<0)return alert('Invalid temporary width.');
- const rawSide=tw?prompt('TEMP workspace preferred side, looking forward along CL: LEFT or RIGHT','RIGHT'):'RIGHT';
- if(rawSide===null)return;
- const preferred=rawSide.trim().toUpperCase();if(!['LEFT','RIGHT'].includes(preferred))return alert('Enter LEFT or RIGHT.');
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const parcelFeatures=(state.reference||[]).filter(g=>g._ownershipSearch).flatMap(g=>g.features||[]).filter(f=>/Polygon/.test(f.geometry?.type||''));
  const xy=ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]};
@@ -2019,26 +2016,16 @@ function ttGeneratePrelimPlats(){
   const path=[r.entry,...cum.filter(x=>x>r.entry+.001&&x<r.exit-.001),r.exit].map(at);
   const seg=path.slice(1).map((b,i)=>({a:path[i],b,d:Math.hypot(b[0]-path[i][0],b[1]-path[i][1]),br:bearing(path[i],b)}));
   const permanent=strip(path,w/2,-w/2),permanentClipped=safeIntersect(permanent,f),permAc=area(permanentClipped);
-  // Each workspace section is a real polygon. Side switches are split into distinct sections;
-  // ambiguous joins remain flagged for review instead of connecting opposite sides with crossing lines.
-  const step=Math.max(5,Math.min(25,tw/2||25));const n=Math.max(2,Math.ceil(r.length/step));const samples=Array.from({length:n+1},(_,i)=>r.entry+(r.exit-r.entry)*i/n);
-  const tangent=t=>{const h=Math.min(.2,Math.max(.01,r.length/10000)),a=at(Math.max(0,t-h)),b=at(Math.min(cum.at(-1),t+h)),dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;return [-dy/len,dx/len]};
-  const sideFits=(t,side)=>{const p=at(t),normal=tangent(t);return [.25,.5,.75,1].every(k=>within(f,[p[0]+normal[0]*side*(w/2+tw*k),p[1]+normal[1]*side*(w/2+tw*k)]))};
-  let chosen=preferred==='LEFT'?1:-1,flips=0,conflicts=0,sections=[],current=null;
-  if(tw){for(let i=0;i<samples.length;i++){
-   const t=samples[i],left=sideFits(t,1),right=sideFits(t,-1),pref=preferred==='LEFT'?1:-1;
-   let next=chosen;if(next!==pref&&sideFits(t,pref))next=pref;else if(!(next===1?left:right)&&(next===1?right:left))next=-next;
-   if(!left&&!right){conflicts++;if(current){current.end=t;sections.push(current);current=null;}continue;}
-   if(next!==chosen){flips++;if(current){current.end=t;sections.push(current);}current=null;}
-   chosen=next;if(!current)current={start:t,end:t,side:chosen};current.end=t;
-  }if(current)sections.push(current);}
-  const temporaryParts=[];let tempAc=0;
-  for(const section of sections){if(section.end-section.start<.01)continue;
-   const cut=[section.start,...cum.filter(x=>x>section.start+.001&&x<section.end-.001),section.end].map(at);
-   const d=section.side,poly=strip(cut,d>0?w/2+tw:-w/2,d>0?w/2:-w/2-tw);
-   const clipped=safeIntersect(poly,f);if(clipped){temporaryParts.push(clipped);tempAc+=area(clipped);}
-  }
-  const boundsPts=path.concat(offset(path,w/2),offset(path,-w/2),offset(path,(preferred==='LEFT'?1:-1)*(w/2+tw)));
+  // Preliminary plat acreage: combine entered permanent and temporary widths.
+  // Centered nominal corridor is used because temporary side is intentionally
+  // unspecified. This is an estimated area, not a designed workspace polygon.
+  const totalWidth=w+tw;
+  const combinedCorridor=strip(path,totalWidth/2,-totalWidth/2);
+  const combinedClipped=safeIntersect(combinedCorridor,f);
+  const totalAc=area(combinedClipped);
+  const tempAc=Math.max(0,totalAc-permAc);
+  const flips=0,conflicts=0;
+  const boundsPts=path.concat(offset(path,w/2),offset(path,-w/2),offset(path,totalWidth/2),offset(path,-totalWidth/2));
   let minx=Math.min(...boundsPts.map(p=>p[0])),maxx=Math.max(...boundsPts.map(p=>p[0])),miny=Math.min(...boundsPts.map(p=>p[1])),maxy=Math.max(...boundsPts.map(p=>p[1]));
   const pad=Math.max(75,w+tw,(Math.max(maxx-minx,maxy-miny))*.14);minx-=pad;maxx+=pad;miny-=pad;maxy+=pad;
   const cx=(minx+maxx)/2,cy=(miny+maxy)/2,unit=Math.max((maxx-minx)/900,(maxy-miny)/600);minx=cx-450*unit;maxx=cx+450*unit;miny=cy-300*unit;maxy=cy+300*unit;
@@ -2068,7 +2055,7 @@ function ttGeneratePrelimPlats(){
     // longer than the easement width while still staying within the drawing window.
     const half=Math.max(w+tw+35,90);
     const a=[point[0]-ux*half,point[1]-uy*half],b=[point[0]+ux*half,point[1]+uy*half];
-    return svgPath([a,b],'#202020',2.5);
+    return svgPath([a,b],'#202020',2.5,'8 6');
   };
   const crossingLines=edgeAt(path[0])+edgeAt(path[path.length-1]);
   const boxes=[];
@@ -2107,20 +2094,54 @@ function ttGeneratePrelimPlats(){
   // of the CL or crossing lines; skip a label when it cannot fit cleanly.
   let owners='';
   const subjectOwner=name(f);
+  // Read the acreage and attribution from the ACTUAL GIS parcel attributes.
+  // Never substitute calculated easement acreage for recorded parcel acreage.
+  const pp=f.properties||{};
+  const normalizedProps=Object.entries(pp).map(([k,v])=>[String(k).toLowerCase().replace(/[^a-z0-9]/g,''),v]);
+  const parcelAttr=(aliases)=>{
+    for(const alias of aliases){
+      const key=alias.toLowerCase().replace(/[^a-z0-9]/g,'');
+      const found=normalizedProps.find(([k,v])=>k===key&&v!==null&&v!==undefined&&String(v).trim()!=='');
+      if(found)return String(found[1]).trim();
+    }
+    return '';
+  };
+  const acreageRaw=parcelAttr(['ACRES','ACREAGE','TOTAL_ACRES','TOTALACRES','GIS_ACRES','GISACRES','DEED_ACRES','DEEDACRES','CALC_ACRES','CALCACRES','LAND_ACRES','LANDACRES','PARCEL_ACRES','PARCELACRES','ACRE','ACREAGE_TOTAL']);
+  const acreageNumber=Number(acreageRaw.replace(/,/g,'').replace(/\s*(acres?|ac)\s*$/i,''));
+  const acreageLabel=acreageRaw?(Number.isFinite(acreageNumber)?`${acreageNumber.toLocaleString('en-US',{maximumFractionDigits:3})} ACRES`:acreageRaw.toUpperCase()):'ACREAGE NOT AVAILABLE';
+  const sourceRaw=parcelAttr(['SOURCE','DATA_SOURCE','DATASOURCE','SOURCE_NAME','SOURCENAME','PARCEL_SOURCE','PARCELSOURCE','GIS_SOURCE','GISSOURCE','AGENCY','PROVIDER','ORIGIN','ORIGINATOR','SOURCE_AGENCY','SOURCEAGENCY','APPRAISAL_DISTRICT','APPRAISALDISTRICT','CAD_NAME','CADNAME']);
+  const sourceLabel=sourceRaw||'SOURCE NOT AVAILABLE';
   const center=tx(path[Math.floor(path.length/2)]);
-  const ownerCandidates=[[center[0],center[1]-90],[center[0],center[1]+90],[center[0]-130,center[1]-100],[center[0]+130,center[1]+100]];
+  const ownerCandidates=[[center[0],center[1]-115],[center[0],center[1]+115],[center[0]-140,center[1]-130],[center[0]+140,center[1]+130]];
   for(const [x,y] of ownerCandidates){
-    const txt=subjectOwner.slice(0,44);
-    if(reserve(x,y,txt,12)){owners+=textAt(x,y,txt,12);break;}
+    const lines=[subjectOwner,acreageLabel,sourceLabel];
+    const maxWidth=Math.max(...lines.map(t=>t.length));
+    // Reserve the complete three-line label block, not individual text lines.
+    const font= maxWidth>42?10:12;
+    const width=Math.min(470,Math.max(80,maxWidth*font*.60+20));
+    const rect={l:x-width/2,r:x+width/2,t:y-27,b:y+31};
+    if(rect.l<10||rect.r>890||rect.t<10||rect.b>590)continue;
+    if(boxes.some(q=>rect.l<q.r+8&&rect.r>q.l-8&&rect.t<q.b+8&&rect.b>q.t-8))continue;
+    // Also keep the parcel label off the red CL, including angled segments.
+    const nearCL=path.some((p,i)=>{
+      if(!i)return false;
+      const a=tx(path[i-1]),b=tx(p),dx=b[0]-a[0],dy=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));
+      return Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy)<43;
+    });
+    if(nearCL)continue;
+    boxes.push(rect);
+    owners+=textAt(x,y-15,subjectOwner,font)+textAt(x,y+2,acreageLabel,font,'normal')+textAt(x,y+19,sourceLabel,font-1,'normal');
+    break;
   }
   const drawing=`<defs><marker id="ttArrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#111"/></marker></defs>`+
-    crossingLines+svgPath(path,'#111',2.8)+labels+coordinateLeaders+owners;
-  const totalAc=permAc+tempAc;
+    crossingLines+svgPath(path,'#d71920',3)+labels+coordinateLeaders+owners;
+
   const warn=(flips?'Workspace side changes require transition design. ':'')+(conflicts?'No acceptable temporary side at '+conflicts+' sample locations. ':'')+(!permanentClipped?'Permanent easement intersection could not be calculated. ':'')+'GIS parcel geometry and offsets require survey verification.';
   const table=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${esc(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');
   const thence=seg.map(v=>`THENCE ${esc(v.br)}, a distance of ${v.d.toFixed(2)} feet to a point;`).join('<br>');
   const attrs=Object.entries(f.properties||{}).filter(([k,v])=>/deed|instrument|volume|page|abstract|survey|county/i.test(k)&&typeof v!=='object'&&String(v).length<120).slice(0,8).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join(' · ');
-  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at proposed centerline entry into mapped tract, grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at proposed centerline exit, grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent: ${w.toFixed(2)} ft (25 ft each side when width is 50 ft)<br>Temporary: ${tw.toFixed(2)} ft outside permanent, preferred ${preferred}<br>Outer temporary offset: ${(w/2+tw).toFixed(2)} ft from CL<br>Combined nominal corridor width: ${(w+tw).toFixed(2)} ft<br>Permanent area clipped: ${permAc.toFixed(3)} acres<br>Temporary area clipped: ${tempAc.toFixed(3)} acres<br><b>Combined preliminary easement: ${totalAc.toFixed(3)} acres</b><br>Auto side switches: ${flips}<br><b>Review:</b> ${esc(warn)}</p><h3>PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are preliminary polygon intersections and may exclude unengineered workspace transitions. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
+  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at proposed centerline entry into mapped tract, grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at proposed centerline exit, grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW width: ${w.toFixed(2)} ft<br>Additional temporary ROW width: ${tw.toFixed(2)} ft<br><b>Total preliminary ROW width: ${totalWidth.toFixed(2)} ft</b><br>Estimated permanent area: ${permAc.toFixed(3)} acres<br>Estimated additional temporary area: ${tempAc.toFixed(3)} acres<br><b>Combined preliminary easement: ${totalAc.toFixed(3)} acres</b><br><b>Review:</b> Preliminary total width modeled as a centered corridor; temporary workspace side and transitions are not defined.</p><h3>LANDOWNER PARCEL ATTRIBUTES</h3><p><b>${esc(subjectOwner)}</b><br>${esc(acreageLabel)}<br>${esc(sourceLabel)}</p><h3>OTHER PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are preliminary polygon intersections using a centered combined-width corridor; actual temporary workspace placement is not defined. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
  }).join('');
  const html=`<!doctype html><html><head><meta charset="utf-8"><title>TerraTrace Preliminary Plats</title><style>@page{size:landscape;margin:9mm}body{font:12px Arial;color:#111;margin:0}.sheet{box-sizing:border-box;break-after:page;page-break-after:always;padding:12px;min-height:95vh;border:3px double #111}.heading{text-align:center;font-size:18px;font-weight:bold}.sub{text-align:center;margin:7px}.map{height:43vh;border:1px solid #333}.map svg{height:100%;width:100%}.twocol{display:grid;grid-template-columns:1.4fr 1fr;gap:22px;font-size:11px}.twocol h3{font-size:12px;border-bottom:1px solid #222;margin:9px 0 4px}.twocol p{line-height:1.35;margin:4px 0}table{border-collapse:collapse}td,th{border:1px solid #333;padding:3px 8px}footer{border-top:2px solid #111;margin-top:10px;font-size:10px}footer b{display:block;text-align:center;margin:7px}@media screen{body{background:#ddd}.sheet{background:white;max-width:1200px;margin:20px auto;min-height:760px}}@media print{.sheet{min-height:0}.sheet:last-child{break-after:auto}}</style></head><body>${sheet}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500))<\/script></body></html>`;
  const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(state.projectName||'TERRATRACE').replace(/[^a-z0-9_-]/gi,'_')+'_PRELIMINARY_PLATS.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);

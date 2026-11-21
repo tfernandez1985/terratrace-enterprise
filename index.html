@@ -2050,59 +2050,30 @@ function ttGeneratePrelimPlats(){
   }
   const tempAc=Math.max(0,totalAc-permanentAc);
   const flips=0,conflicts=0;
-  // Frame the entire subject tract when reasonably possible; for exceptionally
-  // large parcels prioritize the actual crossing while retaining maximum context.
+  // Always frame the complete subject tract, not only the CL crossing.
+  // Adjoining parcels are context; they do not control the sheet extent.
   const subjectRings=(f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates).flatMap(poly=>poly.map(r=>r.map(xy)));
   const tractPts=subjectRings.flat();
-  const crossingPts=path.concat(offset(path,totalWidth/2),offset(path,-totalWidth/2));
   const bbox=pts=>[Math.min(...pts.map(p=>p[0])),Math.min(...pts.map(p=>p[1])),Math.max(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1]))];
-  const [px0,py0,px1,py1]=bbox(crossingPts),[fx0,fy0,fx1,fy1]=bbox(tractPts);
-  const crossingSpan=Math.max(px1-px0,py1-py0,150);
-  const fullSpan=Math.max(fx1-fx0,fy1-fy0);
-  const showFullTract=fullSpan<=crossingSpan*4;
-  const subjectExtent=showFullTract?[fx0,fy0,fx1,fy1]:[px0,py0,px1,py1];
-  const margin=Math.max(70,totalWidth*.7,Math.max(subjectExtent[2]-subjectExtent[0],subjectExtent[3]-subjectExtent[1])*.10);
-  let minx=subjectExtent[0]-margin,miny=subjectExtent[1]-margin,maxx=subjectExtent[2]+margin,maxy=subjectExtent[3]+margin;
-  if(!showFullTract){
-   // Permit up to four crossing spans of context for a very large subject tract.
-   const cX=(px0+px1)/2,cY=(py0+py1)/2,cap=crossingSpan*4;
-   minx=Math.min(minx,cX-cap/2);maxx=Math.max(maxx,cX+cap/2);
-   miny=Math.min(miny,cY-cap/2);maxy=Math.max(maxy,cY+cap/2);
-  }
-  const cx=(minx+maxx)/2,cy=(miny+maxy)/2,unit=Math.max((maxx-minx)/900,(maxy-miny)/600);minx=cx-450*unit;maxx=cx+450*unit;miny=cy-300*unit;maxy=cy+300*unit;
-  const tx=p=>[(p[0]-minx)/unit,600-(p[1]-miny)/unit];
+  const [fx0,fy0,fx1,fy1]=bbox(tractPts);
+  const span=Math.max(fx1-fx0,fy1-fy0,1);
+  const margin=Math.max(span*.09,20);
+  let minx=fx0-margin,miny=fy0-margin,maxx=fx1+margin,maxy=fy1+margin;
+  // Match the tall legal-portrait drawing viewport without distorting geometry.
+  const cx=(minx+maxx)/2,cy=(miny+maxy)/2,unit=Math.max((maxx-minx)/900,(maxy-miny)/1000);
+  minx=cx-450*unit;maxx=cx+450*unit;miny=cy-500*unit;maxy=cy+500*unit;
+  const tx=p=>[(p[0]-minx)/unit,1000-(p[1]-miny)/unit];
   const svgPath=(pts,stroke,width=1,dash='',fill='none')=>`<path d="${pts.map((p,i)=>`${i?'L':'M'}${tx(p).map(x=>x.toFixed(1)).join(' ')}`).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
   const polygonSvg=(poly,fill,stroke)=>{if(!poly)return '';const polys=poly.geometry?.type==='Polygon'?[poly.geometry.coordinates]:poly.geometry?.type==='MultiPolygon'?poly.geometry.coordinates:[];return polys.map(p=>p.map(ring=>svgPath(ring.map(xy),stroke,1,'',fill)).join('')).join('')};
   const clip=(a,b)=>{let t0=0,t1=1,dx=b[0]-a[0],dy=b[1]-a[1];for(const [pp,qq] of [[-dx,a[0]-minx],[dx,maxx-a[0]],[-dy,a[1]-miny],[dy,maxy-a[1]]]){if(Math.abs(pp)<1e-12){if(qq<0)return null;continue;}const t=qq/pp;if(pp<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);if(t0>t1)return null;}return [[a[0]+t0*dx,a[1]+t0*dy],[a[0]+t1*dx,a[1]+t1*dy]]};
-  // Crossing-focused plat: actual centerline only, with entry/exit tract boundary calls.
-  // Find the nearest subject parcel edge to each CL crossing, and extend that edge
-  // visually across the drawing so the tract crossing is unmistakable.
-  const nearestEdge=(point)=>{
-    let best=null,dist=Infinity;
-    for(const ring of subjectRings)for(let i=1;i<ring.length;i++){
-      const a=ring[i-1],b=ring[i],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;
-      if(l2<1e-10)continue;
-      const t=Math.max(0,Math.min(1,((point[0]-a[0])*dx+(point[1]-a[1])*dy)/l2));
-      const q=[a[0]+t*dx,a[1]+t*dy],d=Math.hypot(q[0]-point[0],q[1]-point[1]);
-      if(d<dist){dist=d;best={a,b,q,dx,dy};}
-    }
-    return best;
-  };
-  const edgeAt=(point)=>{
-    const edge=nearestEdge(point);if(!edge)return '';
-    const length=Math.hypot(edge.dx,edge.dy)||1,ux=edge.dx/length,uy=edge.dy/length;
-    // A crossing line is centered on the CL intersection, and is deliberately
-    // longer than the easement width while still staying within the drawing window.
-    const half=Math.max(w+tw+35,90);
-    const a=[point[0]-ux*half,point[1]-uy*half],b=[point[0]+ux*half,point[1]+uy*half];
-    return svgPath([a,b],'#202020',2.5,'8 6');
-  };
-  const crossingLines=edgeAt(path[0])+edgeAt(path[path.length-1]);
+  // Full actual parcel boundaries replace artificial extended crossing lines.
+  // Do not draw ROW outlines, buffers, temporary workspace shapes, or offset lines.
+  const crossingLines='';
   const boxes=[];
   const reserve=(x,y,text,font=12)=>{
     const width=Math.min(360,Math.max(48,text.length*font*.59+12)),height=font+9;
     const rect={l:x-width/2,r:x+width/2,t:y-height/2,b:y+height/2};
-    if(rect.l<8||rect.r>892||rect.t<8||rect.b>592)return false;
+    if(rect.l<8||rect.r>892||rect.t<8||rect.b>992)return false;
     if(boxes.some(q=>rect.l<q.r+7&&rect.r>q.l-7&&rect.t<q.b+5&&rect.b>q.t-5))return false;
     boxes.push(rect);return true;
   };
@@ -2163,7 +2134,7 @@ function ttGeneratePrelimPlats(){
     const font= maxWidth>42?10:12;
     const width=Math.min(470,Math.max(80,maxWidth*font*.60+20));
     const rect={l:x-width/2,r:x+width/2,t:y-27,b:y+31};
-    if(rect.l<10||rect.r>890||rect.t<10||rect.b>590)continue;
+    if(rect.l<10||rect.r>890||rect.t<10||rect.b>990)continue;
     if(boxes.some(q=>rect.l<q.r+8&&rect.r>q.l-8&&rect.t<q.b+8&&rect.b>q.t-8))continue;
     // Also keep the parcel label off the red CL, including angled segments.
     const nearCL=path.some((p,i)=>{
@@ -2177,24 +2148,36 @@ function ttGeneratePrelimPlats(){
     owners+=textAt(x,y-15,subjectOwner,font)+textAt(x,y+2,acreageLabel,font,'normal')+textAt(x,y+19,sourceLabel,font-1,'normal');
     break;
   }
-  // Draw the complete subject boundary (clipped by the SVG viewport) and
-  // neighboring parcel boundaries, labeling adjacent owners where space permits.
+  // Show adjoining owner, recorded LEGAL_AREA and source when available.
+  // Neighbors are only context and never become the subject exhibit polygon.
   const parcelRings=q=>(q.geometry.type==='Polygon'?[q.geometry.coordinates]:q.geometry.type==='MultiPolygon'?q.geometry.coordinates:[]).flatMap(poly=>poly.map(r=>r.map(xy)));
-  const visibleRing=ring=>ring.some(p=>p[0]>=minx&&p[0]<=maxx&&p[1]>=miny&&p[1]<=maxy)||
+  const visibleRing=ring=>ring.length&&ring.some(p=>p[0]>=minx&&p[0]<=maxx&&p[1]>=miny&&p[1]<=maxy)||
     (ring.length>0&&Math.min(...ring.map(p=>p[0]))<=minx&&Math.max(...ring.map(p=>p[0]))>=maxx&&Math.min(...ring.map(p=>p[1]))<=miny&&Math.max(...ring.map(p=>p[1]))>=maxy);
+  const parcelInfo=q=>{
+    const props=Object.entries(q.properties||{}).map(([k,v])=>[k.toLowerCase().replace(/[^a-z0-9]/g,''),v]);
+    const get=keys=>{for(const k of keys){const item=props.find(([key,v])=>key===k.toLowerCase().replace(/[^a-z0-9]/g,'')&&v!=null&&String(v).trim());if(item)return String(item[1]).trim()}return ''};
+    const raw=get(['LEGAL_AREA']),num=Number(raw.replace(/,/g,'').replace(/\s*(acres?|ac)\s*$/i,''));
+    return [name(q),raw?(Number.isFinite(num)?num.toLocaleString('en-US',{maximumFractionDigits:3})+' ACRES':raw.toUpperCase()):'LEGAL AREA NOT AVAILABLE',get(['SOURCE','DATA_SOURCE','DATASOURCE','SOURCE_NAME','PARCEL_SOURCE','GIS_SOURCE','AGENCY','PROVIDER','SOURCE_AGENCY','APPRAISAL_DISTRICT','CAD_NAME'])||'SOURCE NOT AVAILABLE'];
+  };
   let adjacentLines='',adjacentLabels='';
   for(const neighbor of parcelFeatures){
    if(neighbor===f||ownershipKey(neighbor)===r.key)continue;
    const rings=parcelRings(neighbor).filter(visibleRing);if(!rings.length)continue;
-   adjacentLines+=rings.map(ring=>svgPath(ring,'#888',1.15,'6 5')).join('');
+   adjacentLines+=rings.map(ring=>svgPath(ring,'#999',1.15,'6 5')).join('');
    const candidates=rings.flat().filter(p=>p[0]>=minx&&p[0]<=maxx&&p[1]>=miny&&p[1]<=maxy);
    if(!candidates.length)continue;
-   const owner=name(neighbor);
-   if(owner==='LANDOWNER NOT AVAILABLE')continue;
+   const info=parcelInfo(neighbor);
    const mx=candidates.reduce((a,p)=>a+p[0],0)/candidates.length,my=candidates.reduce((a,p)=>a+p[1],0)/candidates.length;
    const [x,y]=tx([mx,my]);
-   if(Math.hypot(x-center[0],y-center[1])<65)continue;
-   if(reserve(x,y,owner,10))adjacentLabels+=textAt(x,y,owner,10,'normal');
+   const maxLength=Math.max(...info.map(t=>t.length)),font=maxLength>45?9:11;
+   const width=Math.min(420,maxLength*font*.59+15);
+   const rect={l:x-width/2,r:x+width/2,t:y-30,b:y+32};
+   if(rect.l<8||rect.r>892||rect.t<8||rect.b>992)continue;
+   if(boxes.some(q=>rect.l<q.r+7&&rect.r>q.l-7&&rect.t<q.b+5&&rect.b>q.t-5))continue;
+   // Avoid labeling the subject tract with an adjoining owner's name.
+   if(within(f,[mx,my]))continue;
+   boxes.push(rect);
+   adjacentLabels+=textAt(x,y-15,info[0],font)+textAt(x,y+2,info[1],font,'normal')+textAt(x,y+19,info[2],font-1,'normal');
   }
   const subjectBoundary=subjectRings.map(ring=>svgPath(ring,'#222',2.2,'9 6')).join('');
   const drawing=`<defs><marker id="ttArrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#111"/></marker></defs>`+
@@ -2204,14 +2187,14 @@ function ttGeneratePrelimPlats(){
   const table=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${esc(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');
   const thence=seg.map(v=>`THENCE ${esc(v.br)}, a distance of ${v.d.toFixed(2)} feet to a point;`).join('<br>');
   const attrs=Object.entries(f.properties||{}).filter(([k,v])=>/deed|instrument|volume|page|abstract|survey|county/i.test(k)&&typeof v!=='object'&&String(v).length<120).slice(0,8).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join(' · ');
-  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — <span class="prelim">PRELIMINARY</span> PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — <span class="prelim">PRELIMINARY</span></h3><p>BEGINNING at proposed centerline entry into mapped tract, WGS84 decimal degrees LAT ${entryLat.toFixed(6)}°, LONG ${entryLon.toFixed(6)}°;</p><p>${thence}</p><p>ENDING at proposed centerline exit, WGS84 decimal degrees LAT ${exitLat.toFixed(6)}°, LONG ${exitLon.toFixed(6)}°.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW width: ${w.toFixed(2)} ft<br>Additional temporary ROW width: ${tw.toFixed(2)} ft<br><b>Total <span class="prelim">preliminary</span> ROW width: ${totalWidth.toFixed(2)} ft</b><br>Estimated permanent area: ${permanentAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}<br>Estimated additional temporary area: ${tempAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}<br><b>Combined <span class="prelim">preliminary</span> easement: ${totalAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}</b><br><b>Review:</b> <span class="prelim">Preliminary</span> total width modeled as a centered corridor; temporary workspace side and transitions are not defined.</p><h3>LANDOWNER PARCEL ATTRIBUTES</h3><p><b>${esc(subjectOwner)}</b><br>${esc(acreageLabel)}<br>${esc(sourceLabel)}</p><h3>OTHER PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b><span class="prelim">PRELIMINARY</span> — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are <span class="prelim">preliminary</span> polygon intersections using a centered combined-width corridor; actual temporary workspace placement is not defined. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
+  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — <span class="prelim">PRELIMINARY</span> PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 1000" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — <span class="prelim">PRELIMINARY</span></h3><p>BEGINNING at proposed centerline entry into mapped tract, WGS84 decimal degrees LAT ${entryLat.toFixed(6)}°, LONG ${entryLon.toFixed(6)}°;</p><p>${thence}</p><p>ENDING at proposed centerline exit, WGS84 decimal degrees LAT ${exitLat.toFixed(6)}°, LONG ${exitLon.toFixed(6)}°.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW width: ${w.toFixed(2)} ft<br>Additional temporary ROW width: ${tw.toFixed(2)} ft<br><b>Total <span class="prelim">preliminary</span> ROW width: ${totalWidth.toFixed(2)} ft</b><br>Estimated permanent area: ${permanentAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}<br>Estimated additional temporary area: ${tempAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}<br><b>Combined <span class="prelim">preliminary</span> easement: ${totalAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}</b><br><b>Review:</b> <span class="prelim">Preliminary</span> total width modeled as a centered corridor; temporary workspace side and transitions are not defined.</p><h3>LANDOWNER PARCEL ATTRIBUTES</h3><p><b>${esc(subjectOwner)}</b><br>${esc(acreageLabel)}<br>${esc(sourceLabel)}</p><h3>OTHER PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b><span class="prelim">PRELIMINARY</span> — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are <span class="prelim">preliminary</span> polygon intersections using a centered combined-width corridor; actual temporary workspace placement is not defined. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
  }).join('');
  const html=`<!doctype html><html><head><meta charset="utf-8"><title>TerraTrace Preliminary Exhibits</title><style>
 @page{size:8.5in 14in;margin:.27in}
 *{box-sizing:border-box}body{font:10px Arial,sans-serif;color:#111;margin:0}.prelim{color:#c40000!important;font-weight:800}
 .sheet{width:7.96in;height:13.46in;overflow:hidden;break-after:page;page-break-after:always;border:2px double #111;padding:.13in;display:flex;flex-direction:column;gap:.045in;background:white}
 .heading{text-align:center;font-size:14px;font-weight:bold;line-height:1.1}.sub{text-align:center;font-size:10px;line-height:1.1}
-.map{height:7.15in;min-height:0;flex-shrink:0;border:1px solid #333}.map svg{display:block;height:100%;width:100%}
+.map{height:8.65in;min-height:0;flex-shrink:0;border:1px solid #333}.map svg{display:block;height:100%;width:100%}
 .twocol{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:9px;flex:1;min-height:0;overflow:hidden}
 .twocol>div{min-width:0;overflow:hidden}.twocol h3{font-size:10px;border-bottom:1px solid #222;margin:5px 0 3px}.twocol p{line-height:1.2;margin:2px 0}
 table{border-collapse:collapse;font-size:9px}td,th{border:1px solid #333;padding:2px 5px}
@@ -2220,7 +2203,7 @@ footer{border-top:1px solid #111;font-size:8px;line-height:1.12;flex-shrink:0}fo
 @media print{.sheet{margin:0}.sheet:last-child{break-after:auto}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>${sheet}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500))<\/script></body></html>`;
  const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(state.projectName||'TERRATRACE').replace(/[^a-z0-9_-]/gi,'_')+'_PRELIMINARY_EXHIBITS_LEGAL.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
- alert('Preliminary exhibits downloaded. Check geometry, side-switch transitions, parcel boundaries and acreages before use.');
+ alert('Preliminary exhibits downloaded. Check parcel boundaries, label placement and acreage calculations before use.');
 }
 function ownershipCSV(){const rows=state.ownershipRows||[];if(!rows.length)return alert('Generate parcel stationing first.');const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const data=[OWNERSHIP_HEADERS,...rows.map(row=>{const flags=ownershipFlags(row.key);return [row.owner,ownershipFormatStation(row.entry),ownershipFormatStation(row.exit),row.length.toFixed(2),row.rods.toFixed(2),...OWNERSHIP_FIELDS.map(k=>flags[k]?'YES':'')];})].map(line=>line.map(quote).join(',')).join('\r\n');download(state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_OWNERSHIP_PARCEL_STATIONS.csv',new Blob(['\ufeff'+data],{type:'text/csv;charset=utf-8'}));}
 function ownershipRouteSelected(){

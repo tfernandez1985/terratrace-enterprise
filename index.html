@@ -1988,7 +1988,7 @@ function ttGeneratePrelimPlats(){
  if(raw===null)return;
  const tw=Number(raw);if(!Number.isFinite(tw)||tw<0)return alert('Invalid temporary width.');
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const parcelFeatures=(state.reference||[]).filter(g=>g._ownershipSearch).flatMap(g=>g.features||[]).filter(f=>/Polygon/.test(f.geometry?.type||''));
+ const parcelFeatures=(state.reference||[]).filter(g=>g._ownershipSearch || /parcel|landowner|ownership|tract/i.test([g.name,g.title,g.category,g.type].filter(Boolean).join(' '))).flatMap(g=>g.features||[]).filter(f=>/Polygon/.test(f.geometry?.type||'') && f.geometry?.coordinates?.length);
  const xy=ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]};
  const ll=p=>proj4(state.crs,WGS,p);
  const projected=route.map(xy),cum=[0];for(let i=1;i<projected.length;i++)cum.push(cum.at(-1)+Math.hypot(projected[i][0]-projected[i-1][0],projected[i][1]-projected[i-1][1]));
@@ -2163,11 +2163,11 @@ function ttGeneratePrelimPlats(){
   for(const neighbor of parcelFeatures){
    if(neighbor===f||ownershipKey(neighbor)===r.key)continue;
    const rings=parcelRings(neighbor).filter(visibleRing);if(!rings.length)continue;
-   adjacentLines+=rings.map(ring=>svgPath(ring,'#999',1.15,'6 5')).join('');
+   adjacentLines+=rings.map(ring=>closedBoundary(ring,'#999',1.15,'6 5')).join('');
    const candidates=rings.flat().filter(p=>p[0]>=minx&&p[0]<=maxx&&p[1]>=miny&&p[1]<=maxy);
    if(!candidates.length)continue;
    const info=parcelInfo(neighbor);
-   const mx=candidates.reduce((a,p)=>a+p[0],0)/candidates.length,my=candidates.reduce((a,p)=>a+p[1],0)/candidates.length;
+   const bounds=bbox(candidates);const mx=(Math.max(bounds[0],minx)+Math.min(bounds[2],maxx))/2,my=(Math.max(bounds[1],miny)+Math.min(bounds[3],maxy))/2;
    const [x,y]=tx([mx,my]);
    const maxLength=Math.max(...info.map(t=>t.length)),font=maxLength>45?9:11;
    const width=Math.min(420,maxLength*font*.59+15);
@@ -2179,9 +2179,11 @@ function ttGeneratePrelimPlats(){
    boxes.push(rect);
    adjacentLabels+=textAt(x,y-15,info[0],font)+textAt(x,y+2,info[1],font,'normal')+textAt(x,y+19,info[2],font-1,'normal');
   }
-  const subjectBoundary=subjectRings.map(ring=>svgPath(ring,'#222',2.2,'9 6')).join('');
+  // Close every parcel ring explicitly. Render original GIS boundaries, never ROW buffers.
+  const closedBoundary=(ring,stroke,width,dash)=>ring.length>=3?`<path d="${ring.map((p,i)=>`${i?'L':'M'}${tx(p).map(n=>n.toFixed(2)).join(' ')}`).join(' ')} Z" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'';
+  const subjectBoundary=subjectRings.map(ring=>closedBoundary(ring,'#161616',2.5,'9 5')).join('');
   const drawing=`<defs><marker id="ttArrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#111"/></marker></defs>`+
-    adjacentLines+subjectBoundary+crossingLines+svgPath(path,'#d71920',3.4)+adjacentLabels+labels+coordinateLeaders+owners;
+    adjacentLines+subjectBoundary+`<path d="${path.map((p,i)=>`${i?'L':'M'}${tx(p).map(n=>n.toFixed(2)).join(' ')}`).join(' ')}" fill="none" stroke="#d71920" stroke-width="3.4" stroke-linecap="round"/>`+adjacentLabels+labels+coordinateLeaders+owners;
 
   const warn=(flips?'Workspace side changes require transition design. ':'')+(conflicts?'No acceptable temporary side at '+conflicts+' sample locations. ':'')+(!permanentClipped?'Permanent easement intersection could not be calculated. ':'')+'GIS parcel geometry and offsets require survey verification.';
   const table=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${esc(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');

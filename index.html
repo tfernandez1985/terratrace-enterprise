@@ -439,8 +439,9 @@ function openTractNoteEditor(key,onSaved){
  const showAttributes=(f,position)=>{
   const p=f.properties||{},name=p.name||p.Name||p.NAME||p.CAD_LAYER||'Imported KMZ feature';
   const rows=kmzAttributeRows(p);
-  const details=rows.map(([key,value])=>'<div style="padding:5px 0;border-bottom:1px solid #52616a55"><b>'+esc(key)+'</b><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(typeof value==='object'?JSON.stringify(value):String(value))+'</div></div>').join('');
+  let details=rows.map(([key,value])=>'<div style="padding:5px 0;border-bottom:1px solid #52616a55"><b>'+esc(key)+'</b><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(typeof value==='object'?JSON.stringify(value):String(value))+'</div></div>').join('');
   const tractKey=p._ownershipKey||ownershipKey(f);
+  if(/Polygon/.test(f.geometry?.type||''))details+='<div style="margin:10px 0"><button type="button" class="tt-open-tract-files" data-tract="'+esc(tractKey)+'">📎 Tract Files / Upload</button></div>';
   const folder=(/Polygon/.test(f.geometry?.type||''))?state.tractFolders?.[tractKey]:null;
   const linked=(/Polygon/.test(f.geometry?.type||''))?(state.tractDocuments?.[tractKey]||[]):[];
   const permittedUrl=u=>/^https:\/\/[a-z0-9-]+\.egnyte\.com\/(?:[a-z0-9_/?#=&%.+~-]+)$/i.test(u||'');
@@ -2023,6 +2024,7 @@ function ownershipUI(){
  ownershipRefresh();
 }
 ownershipUI();
+window.ttOwnershipRows=()=>state.ownershipRows||[];
 window.ttOwnershipFeatureKey=ownershipKey;
 window.ttSaveTractFolder=(key,folder)=>{state.tractFolders=state.tractFolders||{};if(folder)state.tractFolders[key]=folder;else delete state.tractFolders[key];persist();status('Tract Egnyte folder updated — Sync Changes to share');};
 window.ttGetTractFolder=key=>state.tractFolders?.[key]||null;
@@ -2769,6 +2771,7 @@ const $=id=>document.getElementById(id);
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ENTERPRISE_WORKER_URL='https://terratrace-enterprise-dev.supersurveyor1985.workers.dev';
 let token='',me=null,selected=null,selectedRev=null,projects=[],companies=[],users=[],view='projects';
+window.ttEnterpriseCurrentProjectId=()=>selected?.id||null;window.ttEnterpriseSessionToken=()=>token;window.ttEnterpriseWorkerURL=ENTERPRISE_WORKER_URL;
 const canEdit=()=>!!me&&['super_admin','company_admin','management'].includes(me.role);
 function drawerState(){const panel=$('etDrawerProjects');if(!panel)return;panel.hidden=!me;if(!me)return;$('etDrawerIdentity').textContent=`${me.name} · ${me.role} · ${me.company_id||'All companies'}`;$('etDrawerSuperAdmin').hidden=me.role!=='super_admin';$('etDrawerNew').hidden=!canEdit();$('etDrawerSync').hidden=false;$('etDrawerSync').textContent=me.role==='viewer'?'↻ Sync CAD + Photos + Paperwork':'↻ Sync Changes';$('etDrawerCurrent').textContent=selected?`Current: ${selected.name} · revision ${selectedRev}`:'Open an Enterprise cloud project to begin.';}
 function syncProjectSelect(value){$('etProjectsSelect').value=value||'';$('etDrawerProjectSelect').value=value||'';}
@@ -3452,3 +3455,26 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 </script>
 </body></html>
+<style id="tt-tract-documents-style">
+#ownershipLink,#ownershipLinkGoogle,#ttGoogleAdminSettings,#ttEgnyteModal,#ttGoogleModal{display:none!important}
+#ttTractDocModal[hidden]{display:none!important}#ttTractDocModal{position:fixed;inset:0;z-index:7000;background:#000c;display:flex;align-items:center;justify-content:center;padding:14px;color:#e9f2f1}
+#ttTractDocPanel{width:min(670px,100%);max-height:90vh;overflow:auto;background:#121719;border:1px solid #394446;border-radius:14px;padding:18px;box-shadow:0 22px 60px #000a}
+.tt-doc-line{display:flex;align-items:center;gap:8px;border-bottom:1px solid #30393b;padding:10px 0;overflow-wrap:anywhere}.tt-doc-line span{flex:1;min-width:0}.tt-doc-btn{background:#252e30;border:1px solid #465356;color:#f2f6f5;border-radius:8px;padding:9px;cursor:pointer}
+</style>
+<div id="ttTractDocModal" hidden><div id="ttTractDocPanel"><div style="display:flex;justify-content:space-between;gap:12px"><strong id="ttTractDocTitle">TRACT FILES</strong><button class="tt-doc-btn" id="ttTractDocClose">Close</button></div><p id="ttTractDocMessage" style="font-size:12px;color:#b5c5c5">Files are stored securely in Cloudflare R2.</p><div id="ttTractDocList"></div><div style="margin-top:16px"><label class="tt-doc-btn" id="ttTractDocUploadLabel">⬆ Upload Files <input id="ttTractDocInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.csv,.doc,.docx,.xls,.xlsx" style="display:none"></label></div></div></div>
+<script>
+(()=>{'use strict';
+let activeKey='';const $=id=>document.getElementById(id), modal=$('ttTractDocModal'), msg=$('ttTractDocMessage');
+const project=()=>window.ttEnterpriseCurrentProjectId?.();
+const endpoint=()=>'/v1/projects/'+encodeURIComponent(project())+'/tract-files/'+encodeURIComponent(activeKey);
+const request=()=>window.terraTraceEnterpriseRequest;
+function say(s){msg.textContent=s;}
+async function refresh(){const list=$('ttTractDocList');list.replaceChildren();try{const r=await request()(endpoint());const files=r.files||[];if(!files.length)say('No documents attached to this tract yet.');else say(files.length+' document(s) available to authorized project users.');for(const f of files){const line=document.createElement('div');line.className='tt-doc-line';const label=document.createElement('span');label.textContent=f.name+' · '+(f.size_bytes/1048576).toFixed(2)+' MB';line.append(label);const open=document.createElement('button');open.className='tt-doc-btn';open.textContent='Download';open.onclick=async()=>{try{const res=await fetch(window.ttEnterpriseWorkerURL+endpoint()+'/'+encodeURIComponent(f.id),{headers:{Authorization:'Bearer '+window.ttEnterpriseSessionToken?.()}});if(!res.ok)throw Error('Download failed ('+res.status+')');const blob=await res.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=f.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);}catch(e){say(e.message)}};line.append(open);if(['super_admin','company_admin','management'].includes(window.ttEnterpriseRole)){const del=document.createElement('button');del.className='tt-doc-btn';del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete '+f.name+' for all users?'))return;try{await request()(endpoint()+'/'+encodeURIComponent(f.id),'DELETE');await refresh()}catch(e){say(e.message)}};line.append(del)}list.append(line)}}catch(e){say(e.message)}}
+window.ttOpenTractFiles=async key=>{if(!project()||!request())return alert('Open a TerraTrace Enterprise cloud project first.');activeKey=String(key||'');if(!activeKey)return alert('No tract selected');$('ttTractDocTitle').textContent='TRACT DOCUMENTS · '+activeKey;modal.hidden=false;await refresh()};
+$('ttTractDocClose').onclick=()=>modal.hidden=true;modal.onclick=e=>{if(e.target===modal)modal.hidden=true};
+$('ttTractDocInput').onchange=async e=>{const files=[...e.target.files];e.target.value='';if(!files.length)return;for(const file of files){if(file.size>15*1048576){say(file.name+' exceeds 15 MB');continue}try{say('Uploading '+file.name+'...');const res=await fetch(window.ttEnterpriseWorkerURL+endpoint(),{method:'POST',headers:{Authorization:'Bearer '+window.ttEnterpriseSessionToken?.(),'Content-Type':file.type||'application/octet-stream','X-File-Name':encodeURIComponent(file.name)},body:file});const body=await res.json().catch(()=>({}));if(!res.ok)throw Error(body.error||'Upload failed');}catch(err){say(file.name+': '+err.message);return}}await refresh()};
+// Ownership rows receive a per-tract button; map attribute popups use the same function.
+const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)return;const rows=window.ttOwnershipRows?.()||[];[...host.querySelectorAll('tr')].forEach((tr,i)=>{if(tr.querySelector('.tt-tract-file-btn')||!rows[i])return;const cell=document.createElement('td');const b=document.createElement('button');b.className='tt-doc-btn tt-tract-file-btn';b.textContent='📎 Files';b.onclick=()=>window.ttOpenTractFiles(rows[i].key);cell.append(b);tr.append(cell)})});const start=()=>{const host=$('ownershipRows');if(host)observer.observe(host,{childList:true});};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+</script>
+<script>document.addEventListener('click',e=>{const b=e.target.closest('.tt-open-tract-files');if(b)window.ttOpenTractFiles?.(b.dataset.tract)});</script><style>#ttEgnyteAdminSettings,#ttGoogleAdminSettings,.tt-provider-row{display:none!important}</style>

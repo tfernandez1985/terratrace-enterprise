@@ -1980,101 +1980,96 @@ document.addEventListener('click',e=>{if(e.target?.id==='ttPrelimPlats'){
  setMode('gisPickLine');status('PRELIMINARY PLATS: Click the pipeline centerline to generate exhibits only for intersected tracts.');toggle(false);
 }});
 function ttGeneratePrelimPlats(){
- const rows=state.ownershipRows||[], route=state.ownershipRoute;
- if(!rows.length||!route?.length)return alert('First use Ownership → Pick Line → Load Parcels + Stationing.');
- const w=Number(prompt('Permanent ROW total width in feet (centered on CL):', '50'));
- if(!Number.isFinite(w)||w<=0)return;
- const tempRaw=prompt('Temporary ROW width in feet (0 for permanent only):', '50');
- if(tempRaw===null)return;
- const tempW=Number(tempRaw);
- if(!Number.isFinite(tempW)||tempW<0)return alert('Enter a valid temporary ROW width.');
- const sideRaw=tempW?prompt('Preferred temporary ROW side looking in increasing station direction: LEFT or RIGHT', 'RIGHT'):null;
- if(tempW&&sideRaw===null)return;
- const preferred=(sideRaw||'RIGHT').trim().toUpperCase();
- if(tempW&&!['LEFT','RIGHT'].includes(preferred))return alert('Choose LEFT or RIGHT.');
- const parcels=(state.reference||[]).filter(g=>g._ownershipSearch).flatMap(g=>g.features||[]);
- const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const projected=route.map(ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]});
- const cum=[0];for(let i=1;i<projected.length;i++)cum.push(cum[i-1]+Math.hypot(projected[i][0]-projected[i-1][0],projected[i][1]-projected[i-1][1]));
- const pointAt=t=>{let i=1;while(i<cum.length-1&&cum[i]<t)i++;const a=projected[i-1],b=projected[i],u=Math.max(0,Math.min(1,(t-cum[i-1])/(cum[i]-cum[i-1]||1)));return [a[0]+u*(b[0]-a[0]),a[1]+u*(b[1]-a[1])]};
- const bearing=(a,b)=>{let ang=(Math.atan2(b[0]-a[0],b[1]-a[1])*180/Math.PI+360)%360;let ns=ang<=90||ang>=270?'N':'S',ew=ang<=180?'E':'W';let v=ang<=90?ang:ang<=180?180-ang:ang<=270?ang-180:360-ang;let deg=Math.floor(v),min=Math.floor((v-deg)*60),sec=Math.round(((v-deg)*60-min)*60);if(sec===60){sec=0;min++}if(min===60){min=0;deg++}return `${ns} ${String(deg).padStart(2,'0')}°${String(min).padStart(2,'0')}'${String(sec).padStart(2,'0')}" ${ew}`};
+ const rows=state.ownershipRows||[],route=state.ownershipRoute;
+ if(!rows.length||!route?.length)return alert('Pick a centerline and load intersecting parcels first.');
+ const w=Number(prompt('Permanent ROW width (feet, centered on CL):','50'));
+ if(!(w>0))return;
+ const raw=prompt('Additional TEMP ROW width (feet, outside permanent ROW; 0 for none):','50');
+ if(raw===null)return;
+ const tw=Number(raw);if(!Number.isFinite(tw)||tw<0)return alert('Invalid temporary width.');
+ const rawSide=tw?prompt('TEMP workspace preferred side, looking forward along CL: LEFT or RIGHT','RIGHT'):'RIGHT';
+ if(rawSide===null)return;
+ const preferred=rawSide.trim().toUpperCase();if(!['LEFT','RIGHT'].includes(preferred))return alert('Enter LEFT or RIGHT.');
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const parcelFeatures=(state.reference||[]).filter(g=>g._ownershipSearch).flatMap(g=>g.features||[]).filter(f=>/Polygon/.test(f.geometry?.type||''));
+ const xy=ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]};
+ const ll=p=>proj4(state.crs,WGS,p);
+ const projected=route.map(xy),cum=[0];for(let i=1;i<projected.length;i++)cum.push(cum.at(-1)+Math.hypot(projected[i][0]-projected[i-1][0],projected[i][1]-projected[i-1][1]));
+ const at=t=>{let i=1;while(i<cum.length-1&&cum[i]<t)i++;const a=projected[i-1],b=projected[i],u=Math.max(0,Math.min(1,(t-cum[i-1])/(cum[i]-cum[i-1]||1)));return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u]};
+ const lineIntersection=(a,b,c,d)=>{const v=[b[0]-a[0],b[1]-a[1]],z=[d[0]-c[0],d[1]-c[1]],den=v[0]*z[1]-v[1]*z[0];if(Math.abs(den)<1e-10)return null;const u=((c[0]-a[0])*z[1]-(c[1]-a[1])*z[0])/den;return [a[0]+u*v[0],a[1]+u*v[1]]};
+ // True segment-normal offsets, joined at the intersection of neighboring offset lines.
+ // Bevel extreme miters to avoid self-crossing spikes at sharp bends.
+ const offset=(path,d)=>{
+  if(path.length<2)return path.slice();
+  const segments=[];
+  for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1,n=[-dy/len*d,dx/len*d];segments.push([[a[0]+n[0],a[1]+n[1]],[b[0]+n[0],b[1]+n[1]]]);}
+  const result=[segments[0][0]];
+  for(let i=1;i<segments.length;i++){const prev=segments[i-1],next=segments[i],cross=lineIntersection(...prev,...next);if(cross&&Math.hypot(cross[0]-path[i][0],cross[1]-path[i][1])<=Math.max(Math.abs(d)*3,2))result.push(cross);else {result.push(prev[1]);result.push(next[0]);}}
+  result.push(segments.at(-1)[1]);return result;
+ };
+ const closed=(pts)=>pts.length>=3?turf.polygon([[...pts,pts[0]].map(ll)]):null;
+ const safeIntersect=(a,b)=>{try{return a&&b?turf.intersect(a,b):null}catch(e){console.warn('ROW intersection failed',e);return null}};
+ const area=poly=>{try{return poly?turf.area(poly)*10.76391041671/43560:0}catch(e){return 0}};
+ const strip=(path,left,right)=>closed([...offset(path,left),...offset(path,right).reverse()]);
+ const within=(f,p)=>{try{return turf.booleanPointInPolygon(turf.point(ll(p)),f)}catch(e){return false}};
+ const name=f=>ownershipDetails(f).owner||'LANDOWNER NOT AVAILABLE';
+ const bearing=(a,b)=>{const ang=(Math.atan2(b[0]-a[0],b[1]-a[1])*180/Math.PI+360)%360,ns=ang<=90||ang>=270?'N':'S',ew=ang<=180?'E':'W',v=ang<=90?ang:ang<=180?180-ang:ang<=270?ang-180:360-ang;let dd=Math.floor(v),mm=Math.floor((v-dd)*60),ss=Math.round(((v-dd)*60-mm)*60);if(ss===60){ss=0;mm++}if(mm===60){mm=0;dd++}return `${ns} ${String(dd).padStart(2,'0')}°${String(mm).padStart(2,'0')}'${String(ss).padStart(2,'0')}" ${ew}`};
  const sheet=rows.map((r,idx)=>{
-  const f=parcels.find(f=>ownershipKey(f)===r.key);
-  const prop=f?.properties||{};
-  const path=[r.entry,...cum.filter(x=>x>r.entry+.001&&x<r.exit-.001),r.exit].map(pointAt);
+  const f=parcelFeatures.find(q=>ownershipKey(q)===r.key);if(!f)return '';
+  const path=[r.entry,...cum.filter(x=>x>r.entry+.001&&x<r.exit-.001),r.exit].map(at);
   const seg=path.slice(1).map((b,i)=>({a:path[i],b,d:Math.hypot(b[0]-path[i][0],b[1]-path[i][1]),br:bearing(path[i],b)}));
-  let rings=[];if(f?.geometry){const geo=f.geometry.coordinates;const poly=f.geometry.type==='Polygon'?geo:geo.flatMap(x=>x);for(const ring of poly){try{rings.push(ring.map(ll=>{const q=toXY({lat:ll[1],lng:ll[0]});return [q.e,q.n]}))}catch(e){}}}
-  // Fit each sheet to the crossing, NOT to the full source parcel extent.
-  const xs=path.map(p=>p[0]),ys=path.map(p=>p[1]);
-  let minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
-  const span=Math.max(maxx-minx,maxy-miny,1),pad=Math.max(w*2,span*.18,65);
-  minx-=pad;maxx+=pad;miny-=pad;maxy+=pad;
-  // Keep equal ground-distance scale horizontally and vertically.
-  const cx=(minx+maxx)/2,cy=(miny+maxy)/2,unit=Math.max((maxx-minx)/900,(maxy-miny)/600);
-  minx=cx-450*unit;maxx=cx+450*unit;miny=cy-300*unit;maxy=cy+300*unit;
-  const tx=p=>[(p[0]-minx)/unit,600-(p[1]-miny)/unit];
-  // Clip parcel boundary segments to the local exhibit window; do not draw whole parcel.
-  const clipSegment=(a,b)=>{
-   let t0=0,t1=1,dx=b[0]-a[0],dy=b[1]-a[1];
-   for(const [pp,qq] of [[-dx,a[0]-minx],[dx,maxx-a[0]],[-dy,a[1]-miny],[dy,maxy-a[1]]]){
-    if(Math.abs(pp)<1e-12){if(qq<0)return null;continue}
-    const t=qq/pp;if(pp<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);if(t0>t1)return null;
-   }
-   return [[a[0]+t0*dx,a[1]+t0*dy],[a[0]+t1*dx,a[1]+t1*dy]];
-  };
-  const polySVG=rings.map(ring=>ring.slice(1).map((b,i)=>{
-   const clipped=clipSegment(ring[i],b);if(!clipped)return '';
-   return `<line x1="${tx(clipped[0])[0].toFixed(1)}" y1="${tx(clipped[0])[1].toFixed(1)}" x2="${tx(clipped[1])[0].toFixed(1)}" y2="${tx(clipped[1])[1].toFixed(1)}" stroke="#333" stroke-width="1.8"/>`;
-  }).join('')).join('');
-  // Evaluate both workspace sides against the full subject parcel at short station intervals.
-  // Project XY must be a feet-based CRS, as used by the existing ownership stationing.
-  const containsXY=q=>{try{return !!f&&turf.booleanPointInPolygon(turf.point(proj4(state.crs,WGS,q)),f)}catch(e){return false}};
-  const offsetAt=(t,d)=>{
-   const step=Math.min(1,Math.max(.05,(r.exit-r.entry)/1000));
-   const a=pointAt(Math.max(0,t-step)),b=pointAt(Math.min(cum[cum.length-1],t+step));
-   const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1,p=pointAt(t);
-   return [p[0]-dy/len*d,p[1]+dx/len*d];
-  };
-  const polyline=(pts,color,width,dash='')=>pts.length<2?'':`<polyline points="${pts.map(p=>tx(p).map(n=>n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${width}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
-  const n=Math.max(2,Math.ceil((r.exit-r.entry)/Math.min(10,Math.max(2,tempW/4||10))));
-  const samples=Array.from({length:n+1},(_,i)=>r.entry+(r.exit-r.entry)*i/n);
-  const permLeft=samples.map(t=>offsetAt(t,w/2)),permRight=samples.map(t=>offsetAt(t,-w/2));
-  let permConflict=0,tempConflict=0,switches=0,active=preferred==='LEFT'?1:-1,previous=active;
-  const tempPaths=[],tempTransitions=[],sideSegments=[];
-  let current=[];
-  const flush=()=>{if(current.length>1)tempPaths.push(current);current=[]};
-  for(let i=0;i<samples.length;i++){
-   const t=samples[i];
-   if(!containsXY(permLeft[i])||!containsXY(permRight[i]))permConflict++;
-   if(!tempW)continue;
-   const fits=side=>[.1,.5,.9,1].every(k=>containsXY(offsetAt(t,side*(w/2+tempW*k))));
-   const left=fits(1),right=fits(-1);
-   // Stay on the current side when possible; switch only to avoid an additional parcel.
-   // Return to preferred side when it becomes feasible again.
-   let chosen=active;
-   const prefer=preferred==='LEFT'?1:-1;
-   if(chosen!==prefer&&fits(prefer))chosen=prefer;
-   else if(!fits(chosen)&&fits(-chosen))chosen=-chosen;
-   if(!left&&!right){tempConflict++;flush();sideSegments.push({t,side:0});continue}
-   if(chosen!==previous){flush();switches++;tempTransitions.push(t)}
-   const edge=offsetAt(t,chosen*(w/2+tempW));
-   if(!current.length)current.push(offsetAt(t,chosen*w/2));
-   current.push(edge);active=chosen;previous=chosen;sideSegments.push({t,side:chosen});
+  const permanent=strip(path,w/2,-w/2),permanentClipped=safeIntersect(permanent,f),permAc=area(permanentClipped);
+  // Each workspace section is a real polygon. Side switches are split into distinct sections;
+  // ambiguous joins remain flagged for review instead of connecting opposite sides with crossing lines.
+  const step=Math.max(5,Math.min(25,tw/2||25));const n=Math.max(2,Math.ceil(r.length/step));const samples=Array.from({length:n+1},(_,i)=>r.entry+(r.exit-r.entry)*i/n);
+  const tangent=t=>{const h=Math.min(.2,Math.max(.01,r.length/10000)),a=at(Math.max(0,t-h)),b=at(Math.min(cum.at(-1),t+h)),dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;return [-dy/len,dx/len]};
+  const sideFits=(t,side)=>{const p=at(t),normal=tangent(t);return [.25,.5,.75,1].every(k=>within(f,[p[0]+normal[0]*side*(w/2+tw*k),p[1]+normal[1]*side*(w/2+tw*k)]))};
+  let chosen=preferred==='LEFT'?1:-1,flips=0,conflicts=0,sections=[],current=null;
+  if(tw){for(let i=0;i<samples.length;i++){
+   const t=samples[i],left=sideFits(t,1),right=sideFits(t,-1),pref=preferred==='LEFT'?1:-1;
+   let next=chosen;if(next!==pref&&sideFits(t,pref))next=pref;else if(!(next===1?left:right)&&(next===1?right:left))next=-next;
+   if(!left&&!right){conflicts++;if(current){current.end=t;sections.push(current);current=null;}continue;}
+   if(next!==chosen){flips++;if(current){current.end=t;sections.push(current);}current=null;}
+   chosen=next;if(!current)current={start:t,end:t,side:chosen};current.end=t;
+  }if(current)sections.push(current);}
+  const temporaryParts=[];let tempAc=0;
+  for(const section of sections){if(section.end-section.start<.01)continue;
+   const cut=[section.start,...cum.filter(x=>x>section.start+.001&&x<section.end-.001),section.end].map(at);
+   const d=section.side,poly=strip(cut,d>0?w/2+tw:-w/2,d>0?w/2:-w/2-tw);
+   const clipped=safeIntersect(poly,f);if(clipped){temporaryParts.push(clipped);tempAc+=area(clipped);}
   }
-  flush();
-  const permSVG=polyline(permLeft,'#2563a1',2,'8 4')+polyline(permRight,'#2563a1',2,'8 4');
-  const tempSVG=tempPaths.map(pts=>polyline(pts,'#b7791f',2,'6 4')).join('')+tempTransitions.map(t=>{const p=tx(pointAt(t));return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="7" fill="#f59e0b" stroke="#111"/><text x="${(p[0]+9).toFixed(1)}" y="${(p[1]-9).toFixed(1)}" font-size="13">TEMP SIDE SWITCH</text>`}).join('');
-  const lineSVG=permSVG+tempSVG+`<polyline points="${path.map(p=>tx(p).map(n=>n.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="#d71935" stroke-width="4"/>`;
-  const warning=(permConflict?'Permanent ROW may extend outside subject parcel. ':'')+(tempConflict?'Neither temporary ROW side fits at some stations. ':'')+(switches?`${switches} temporary ROW side switch(es) shown. `:'')+'All ROW geometry and transitions require survey/engineering review.';
-
-  const rowsHTML=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${escape(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');
-  const thence=seg.map(v=>`THENCE ${escape(v.br)}, a distance of ${v.d.toFixed(2)} feet to a point;`).join('<br>');
-  const source=Object.entries(prop).filter(([k,v])=>/deed|instrument|volume|page|abstract|survey|county/i.test(k)&&typeof v!=='object'&&String(v).length<120).slice(0,8).map(([k,v])=>`${escape(k)}: ${escape(v)}`).join(' · ');
-  return `<section class="sheet"><div class="heading">${escape(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${escape(r.owner||'OWNER NOT AVAILABLE')} · ${escape(r.parcel||'PARCEL ID NOT AVAILABLE')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${polySVG}${lineSVG}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${rowsHTML}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at the proposed centerline entry into the mapped tract, at grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at the proposed centerline exit from the mapped tract, at grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry station: ${escape(ownershipFormatStation(r.entry))}<br>Exit station: ${escape(ownershipFormatStation(r.exit))}<br>Centerline length: ${r.length.toFixed(2)} feet<br>Rodage: ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW: ${w.toFixed(2)} feet (±${(w/2).toFixed(2)} feet from CL)<br>Temporary ROW: ${tempW.toFixed(2)} feet · preferred ${escape(preferred)}<br>Automatic side switches: ${switches}<br><b>Review:</b> ${escape(warning)}<br>Approx. permanent ROW area (length × width): ${(r.length*w/43560).toFixed(3)} acres</p><h3>AVAILABLE PARCEL RECORD ATTRIBUTES</h3><p>${source||'No deed, survey, or abstract details available in loaded GIS attributes.'}</p><p>Map geometry from current TerraTrace project GIS parcels and centerline.</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>Parcel GIS boundaries may be approximate. Permanent acreage is a nominal length × width estimate, not a surveyed/clipped easement area. Temporary acreage is not calculated. Offset geometry is conceptual and may extend beyond parcel limits; side-switch transitions are not engineered. Grid bearings and coordinates depend on project CRS. No monument ties, deed calls, survey certification, or legal description are asserted. Verify all source records, boundaries, easement geometry, and measurements before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
+  const boundsPts=path.concat(offset(path,w/2),offset(path,-w/2),offset(path,(preferred==='LEFT'?1:-1)*(w/2+tw)));
+  let minx=Math.min(...boundsPts.map(p=>p[0])),maxx=Math.max(...boundsPts.map(p=>p[0])),miny=Math.min(...boundsPts.map(p=>p[1])),maxy=Math.max(...boundsPts.map(p=>p[1]));
+  const pad=Math.max(75,w+tw,(Math.max(maxx-minx,maxy-miny))*.14);minx-=pad;maxx+=pad;miny-=pad;maxy+=pad;
+  const cx=(minx+maxx)/2,cy=(miny+maxy)/2,unit=Math.max((maxx-minx)/900,(maxy-miny)/600);minx=cx-450*unit;maxx=cx+450*unit;miny=cy-300*unit;maxy=cy+300*unit;
+  const tx=p=>[(p[0]-minx)/unit,600-(p[1]-miny)/unit];
+  const svgPath=(pts,stroke,width=1,dash='',fill='none')=>`<path d="${pts.map((p,i)=>`${i?'L':'M'}${tx(p).map(x=>x.toFixed(1)).join(' ')}`).join(' ')}" fill="${fill}" stroke="${stroke}" stroke-width="${width}" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+  const polygonSvg=(poly,fill,stroke)=>{if(!poly)return '';const polys=poly.geometry?.type==='Polygon'?[poly.geometry.coordinates]:poly.geometry?.type==='MultiPolygon'?poly.geometry.coordinates:[];return polys.map(p=>p.map(ring=>svgPath(ring.map(xy),stroke,1,'',fill)).join('')).join('')};
+  const clip=(a,b)=>{let t0=0,t1=1,dx=b[0]-a[0],dy=b[1]-a[1];for(const [pp,qq] of [[-dx,a[0]-minx],[dx,maxx-a[0]],[-dy,a[1]-miny],[dy,maxy-a[1]]]){if(Math.abs(pp)<1e-12){if(qq<0)return null;continue;}const t=qq/pp;if(pp<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);if(t0>t1)return null;}return [[a[0]+t0*dx,a[1]+t0*dy],[a[0]+t1*dx,a[1]+t1*dy]]};
+  // Draw subject and adjoining tract boundaries only inside the crossing-focused window.
+  let boundaries='',owners='';const shown=new Set();
+  for(const pf of parcelFeatures){const polys=pf.geometry.type==='Polygon'?[pf.geometry.coordinates]:pf.geometry.coordinates;let visible=[];
+   for(const poly of polys)for(const ring of poly){const pts=ring.map(xy);for(let i=1;i<pts.length;i++){const c=clip(pts[i-1],pts[i]);if(c){boundaries+=svgPath(c,pf===f?'#111':'#777',pf===f?2.5:1.4);visible.push(...c);}}}
+   if(!visible.length&&pf!==f)continue;
+   const key=ownershipKey(pf);if(shown.has(key))continue;shown.add(key);
+   let pos;try{const center=turf.centroid(pf).geometry.coordinates;pos=xy(center);}catch(e){pos=null;}
+   if(!pos||pos[0]<minx||pos[0]>maxx||pos[1]<miny||pos[1]>maxy){if(visible.length)pos=visible[Math.floor(visible.length/2)];else if(pf===f)pos=path[Math.floor(path.length/2)];}
+   if(pos){const t=tx(pos);owners+=`<text x="${t[0].toFixed(1)}" y="${t[1].toFixed(1)}" text-anchor="middle" font-size="12" font-weight="bold" fill="#222" stroke="white" stroke-width="3" paint-order="stroke">${esc(name(pf).slice(0,48))}</text>`;}
+  }
+  const labels=seg.map((v,i)=>{const t=tx([(v.a[0]+v.b[0])/2,(v.a[1]+v.b[1])/2]);return `<text x="${(t[0]+7).toFixed(1)}" y="${(t[1]-8).toFixed(1)}" font-size="13" font-weight="bold" fill="#111" stroke="white" stroke-width="4" paint-order="stroke">L${i+1}</text>`}).join('');
+  const tempShapes=temporaryParts.map(p=>polygonSvg(p,'#f1d49a','#ad791b')).join('');
+  const permShape=polygonSvg(permanentClipped,'#c5dced','#2164a0');
+  const drawing=boundaries+permShape+tempShapes+svgPath(path,'#d71935',3)+labels+owners;
+  const totalAc=permAc+tempAc;
+  const warn=(flips?'Workspace side changes require transition design. ':'')+(conflicts?'No acceptable temporary side at '+conflicts+' sample locations. ':'')+(!permanentClipped?'Permanent easement intersection could not be calculated. ':'')+'GIS parcel geometry and offsets require survey verification.';
+  const table=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${esc(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');
+  const thence=seg.map(v=>`THENCE ${esc(v.br)}, a distance of ${v.d.toFixed(2)} feet to a point;`).join('<br>');
+  const attrs=Object.entries(f.properties||{}).filter(([k,v])=>/deed|instrument|volume|page|abstract|survey|county/i.test(k)&&typeof v!=='object'&&String(v).length<120).slice(0,8).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join(' · ');
+  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at proposed centerline entry into mapped tract, grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at proposed centerline exit, grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent: ${w.toFixed(2)} ft (25 ft each side when width is 50 ft)<br>Temporary: ${tw.toFixed(2)} ft outside permanent, preferred ${preferred}<br>Outer temporary offset: ${(w/2+tw).toFixed(2)} ft from CL<br>Combined nominal corridor width: ${(w+tw).toFixed(2)} ft<br>Permanent area clipped: ${permAc.toFixed(3)} acres<br>Temporary area clipped: ${tempAc.toFixed(3)} acres<br><b>Combined preliminary easement: ${totalAc.toFixed(3)} acres</b><br>Auto side switches: ${flips}<br><b>Review:</b> ${esc(warn)}</p><h3>PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are preliminary polygon intersections and may exclude unengineered workspace transitions. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
  }).join('');
  const html=`<!doctype html><html><head><meta charset="utf-8"><title>TerraTrace Preliminary Plats</title><style>@page{size:landscape;margin:9mm}body{font:12px Arial;color:#111;margin:0}.sheet{box-sizing:border-box;break-after:page;page-break-after:always;padding:12px;min-height:95vh;border:3px double #111}.heading{text-align:center;font-size:18px;font-weight:bold}.sub{text-align:center;margin:7px}.map{height:43vh;border:1px solid #333}.map svg{height:100%;width:100%}.twocol{display:grid;grid-template-columns:1.4fr 1fr;gap:22px;font-size:11px}.twocol h3{font-size:12px;border-bottom:1px solid #222;margin:9px 0 4px}.twocol p{line-height:1.35;margin:4px 0}table{border-collapse:collapse}td,th{border:1px solid #333;padding:3px 8px}footer{border-top:2px solid #111;margin-top:10px;font-size:10px}footer b{display:block;text-align:center;margin:7px}@media screen{body{background:#ddd}.sheet{background:white;max-width:1200px;margin:20px auto;min-height:760px}}@media print{.sheet{min-height:0}.sheet:last-child{break-after:auto}}</style></head><body>${sheet}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500))<\/script></body></html>`;
- const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(state.projectName||'TERRATRACE').replace(/[^a-z0-9_-]/gi,'_')+'_PRELIMINARY_PLATS.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
- alert('Preliminary plat package downloaded as HTML. Open it in a browser and choose Print → Save as PDF. Review all dimensions and parcel records before use.');
+ const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(state.projectName||'TERRATRACE').replace(/[^a-z0-9_-]/gi,'_')+'_PRELIMINARY_PLATS.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+ alert('Preliminary exhibits downloaded. Check geometry, side-switch transitions, parcel boundaries and acreages before use.');
 }
 function ownershipCSV(){const rows=state.ownershipRows||[];if(!rows.length)return alert('Generate parcel stationing first.');const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const data=[OWNERSHIP_HEADERS,...rows.map(row=>{const flags=ownershipFlags(row.key);return [row.owner,ownershipFormatStation(row.entry),ownershipFormatStation(row.exit),row.length.toFixed(2),row.rods.toFixed(2),...OWNERSHIP_FIELDS.map(k=>flags[k]?'YES':'')];})].map(line=>line.map(quote).join(',')).join('\r\n');download(state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_OWNERSHIP_PARCEL_STATIONS.csv',new Blob(['\ufeff'+data],{type:'text/csv;charset=utf-8'}));}
 function ownershipRouteSelected(){

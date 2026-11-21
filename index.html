@@ -2022,8 +2022,33 @@ function ttGeneratePrelimPlats(){
   const totalWidth=w+tw;
   const combinedCorridor=strip(path,totalWidth/2,-totalWidth/2);
   const combinedClipped=safeIntersect(combinedCorridor,f);
-  const totalAc=area(combinedClipped);
-  const tempAc=Math.max(0,totalAc-permAc);
+  // The offset-ring polygon can become invalid on sharp CL turns and Turf may
+  // return no intersection. In that case use Turf's robust line buffer.
+  // Calculate both widths with the same method so temp acreage cannot disappear.
+  const bufferedArea=(width)=>{
+   try{
+    const centerline=turf.lineString(path.map(ll));
+    const corridor=turf.buffer(centerline,width/2,{units:'feet',steps:16});
+    return area(safeIntersect(corridor,f));
+   }catch(e){console.warn('Buffered ROW area fallback failed',e);return 0;}
+  };
+  let acreageIsNominal=false;
+  let permanentAc=permAc;
+  let totalAc=area(combinedClipped);
+  if(tw>0 && (totalAc<=permanentAc+1e-9 || !Number.isFinite(totalAc))){
+   const bufferedPerm=bufferedArea(w),bufferedTotal=bufferedArea(totalWidth);
+   if(bufferedTotal>bufferedPerm+1e-9){
+    permanentAc=bufferedPerm;
+    totalAc=bufferedTotal;
+   }else{
+    // Last-resort nominal corridor estimate, clearly identified below.
+    // CL length in feet × entered width in feet / 43,560 sq ft per acre.
+    acreageIsNominal=true;
+    permanentAc=r.length*w/43560;
+    totalAc=r.length*totalWidth/43560;
+   }
+  }
+  const tempAc=Math.max(0,totalAc-permanentAc);
   const flips=0,conflicts=0;
   const boundsPts=path.concat(offset(path,w/2),offset(path,-w/2),offset(path,totalWidth/2),offset(path,-totalWidth/2));
   let minx=Math.min(...boundsPts.map(p=>p[0])),maxx=Math.max(...boundsPts.map(p=>p[0])),miny=Math.min(...boundsPts.map(p=>p[1])),maxy=Math.max(...boundsPts.map(p=>p[1]));
@@ -2141,7 +2166,7 @@ function ttGeneratePrelimPlats(){
   const table=seg.map((v,i)=>`<tr><td>L${i+1}</td><td>${esc(v.br)}</td><td>${v.d.toFixed(2)}'</td></tr>`).join('');
   const thence=seg.map(v=>`THENCE ${esc(v.br)}, a distance of ${v.d.toFixed(2)} feet to a point;`).join('<br>');
   const attrs=Object.entries(f.properties||{}).filter(([k,v])=>/deed|instrument|volume|page|abstract|survey|county/i.test(k)&&typeof v!=='object'&&String(v).length<120).slice(0,8).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join(' · ');
-  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at proposed centerline entry into mapped tract, grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at proposed centerline exit, grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW width: ${w.toFixed(2)} ft<br>Additional temporary ROW width: ${tw.toFixed(2)} ft<br><b>Total preliminary ROW width: ${totalWidth.toFixed(2)} ft</b><br>Estimated permanent area: ${permAc.toFixed(3)} acres<br>Estimated additional temporary area: ${tempAc.toFixed(3)} acres<br><b>Combined preliminary easement: ${totalAc.toFixed(3)} acres</b><br><b>Review:</b> Preliminary total width modeled as a centered corridor; temporary workspace side and transitions are not defined.</p><h3>LANDOWNER PARCEL ATTRIBUTES</h3><p><b>${esc(subjectOwner)}</b><br>${esc(acreageLabel)}<br>${esc(sourceLabel)}</p><h3>OTHER PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are preliminary polygon intersections using a centered combined-width corridor; actual temporary workspace placement is not defined. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
+  return `<section class="sheet"><div class="heading">${esc(state.projectName||'TERRATRACE PROJECT')} — PRELIMINARY PIPELINE EASEMENT EXHIBIT</div><div class="sub">TRACT ${idx+1} OF ${rows.length} · ${esc(r.owner||'UNKNOWN OWNER')} · ${esc(r.parcel||'UNKNOWN PARCEL')}</div><div class="map"><svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">${drawing}<text x="850" y="45" font-size="28" font-weight="bold">N ↑</text></svg></div><div class="twocol"><div><h3>LINE TABLE</h3><table><tr><th>LINE</th><th>BEARING (GRID)</th><th>DISTANCE</th></tr>${table}</table><h3>CENTERLINE DESCRIPTION — PRELIMINARY</h3><p>BEGINNING at proposed centerline entry into mapped tract, grid coordinates N ${r.entryN.toFixed(2)}, E ${r.entryE.toFixed(2)};</p><p>${thence}</p><p>ENDING at proposed centerline exit, grid coordinates N ${r.exitN.toFixed(2)}, E ${r.exitE.toFixed(2)}.</p></div><div><h3>EASEMENT SUMMARY</h3><p>Entry: ${esc(ownershipFormatStation(r.entry))}<br>Exit: ${esc(ownershipFormatStation(r.exit))}<br>Centerline: ${r.length.toFixed(2)} feet / ${(r.length/16.5).toFixed(2)} rods<br>Permanent ROW width: ${w.toFixed(2)} ft<br>Additional temporary ROW width: ${tw.toFixed(2)} ft<br><b>Total preliminary ROW width: ${totalWidth.toFixed(2)} ft</b><br>Estimated permanent area: ${permanentAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}<br>Estimated additional temporary area: ${tempAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}<br><b>Combined preliminary easement: ${totalAc.toFixed(3)} acres${acreageIsNominal?" (nominal estimate)":""}</b><br><b>Review:</b> Preliminary total width modeled as a centered corridor; temporary workspace side and transitions are not defined.</p><h3>LANDOWNER PARCEL ATTRIBUTES</h3><p><b>${esc(subjectOwner)}</b><br>${esc(acreageLabel)}<br>${esc(sourceLabel)}</p><h3>OTHER PARCEL RECORD ATTRIBUTES</h3><p>${attrs||'No deed/survey metadata available.'}</p></div></div><footer><b>PRELIMINARY — PLANNING PURPOSES ONLY — NOT A BOUNDARY SURVEY</b><p>GIS parcels may be approximate. Easement areas are preliminary polygon intersections using a centered combined-width corridor; actual temporary workspace placement is not defined. No monument ties, surveyed boundaries, deed calls, or surveyor certification are asserted. Verify CRS, parcel data, offsets, transition geometry, and rights before legal or construction use.</p><div>Generated ${new Date().toLocaleDateString()} · TerraTrace GIS · Sheet ${idx+1}/${rows.length}</div></footer></section>`;
  }).join('');
  const html=`<!doctype html><html><head><meta charset="utf-8"><title>TerraTrace Preliminary Plats</title><style>@page{size:landscape;margin:9mm}body{font:12px Arial;color:#111;margin:0}.sheet{box-sizing:border-box;break-after:page;page-break-after:always;padding:12px;min-height:95vh;border:3px double #111}.heading{text-align:center;font-size:18px;font-weight:bold}.sub{text-align:center;margin:7px}.map{height:43vh;border:1px solid #333}.map svg{height:100%;width:100%}.twocol{display:grid;grid-template-columns:1.4fr 1fr;gap:22px;font-size:11px}.twocol h3{font-size:12px;border-bottom:1px solid #222;margin:9px 0 4px}.twocol p{line-height:1.35;margin:4px 0}table{border-collapse:collapse}td,th{border:1px solid #333;padding:3px 8px}footer{border-top:2px solid #111;margin-top:10px;font-size:10px}footer b{display:block;text-align:center;margin:7px}@media screen{body{background:#ddd}.sheet{background:white;max-width:1200px;margin:20px auto;min-height:760px}}@media print{.sheet{min-height:0}.sheet:last-child{break-after:auto}}</style></head><body>${sheet}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),500))<\/script></body></html>`;
  const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(state.projectName||'TERRATRACE').replace(/[^a-z0-9_-]/gi,'_')+'_PRELIMINARY_PLATS.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);

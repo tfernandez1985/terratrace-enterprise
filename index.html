@@ -2159,6 +2159,7 @@ function ttGeneratePrelimPlats(){
     const raw=get(['LEGAL_AREA']),num=Number(raw.replace(/,/g,'').replace(/\s*(acres?|ac)\s*$/i,''));
     return [name(q),raw?(Number.isFinite(num)?num.toLocaleString('en-US',{maximumFractionDigits:3})+' ACRES':raw.toUpperCase()):'LEGAL AREA NOT AVAILABLE',get(['SOURCE','DATA_SOURCE','DATASOURCE','SOURCE_NAME','PARCEL_SOURCE','GIS_SOURCE','AGENCY','PROVIDER','SOURCE_AGENCY','APPRAISAL_DISTRICT','CAD_NAME'])||'SOURCE NOT AVAILABLE'];
   };
+  const closedBoundary=(ring,stroke,width,dash)=>ring.length>=3?`<path d="${ring.map((p,i)=>`${i?'L':'M'}${tx(p).map(n=>n.toFixed(2)).join(' ')}`).join(' ')} Z" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'';
   let adjacentLines='',adjacentLabels='';
   for(const neighbor of parcelFeatures){
    if(neighbor===f||ownershipKey(neighbor)===r.key)continue;
@@ -2180,7 +2181,6 @@ function ttGeneratePrelimPlats(){
    adjacentLabels+=textAt(x,y-15,info[0],font)+textAt(x,y+2,info[1],font,'normal')+textAt(x,y+19,info[2],font-1,'normal');
   }
   // Close every parcel ring explicitly. Render original GIS boundaries, never ROW buffers.
-  const closedBoundary=(ring,stroke,width,dash)=>ring.length>=3?`<path d="${ring.map((p,i)=>`${i?'L':'M'}${tx(p).map(n=>n.toFixed(2)).join(' ')}`).join(' ')} Z" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'';
   const subjectBoundary=subjectRings.map(ring=>closedBoundary(ring,'#161616',2.5,'9 5')).join('');
   const drawing=`<defs><marker id="ttArrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="#111"/></marker></defs>`+
     adjacentLines+subjectBoundary+`<path d="${path.map((p,i)=>`${i?'L':'M'}${tx(p).map(n=>n.toFixed(2)).join(' ')}`).join(' ')}" fill="none" stroke="#d71920" stroke-width="3.4" stroke-linecap="round"/>`+adjacentLabels+labels+coordinateLeaders+owners;

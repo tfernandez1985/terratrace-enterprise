@@ -160,7 +160,12 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 #ttLandownerGo{width:auto;white-space:nowrap;border:0;border-left:1px solid #334b57;background:#192934;color:#eef9fd;font:600 11px system-ui;padding:0 10px;cursor:pointer}
 #ttLandownerGo:hover{background:#244659}
 #ttLandownerGo:disabled{opacity:.55;cursor:wait}
-#ttLandownerResults{position:absolute;top:calc(100% + 5px);left:0;right:0;max-height:min(430px,65vh);overflow-y:auto;background:#0b141beE;border:1px solid #416173;border-radius:10px;box-shadow:0 12px 32px #000b;padding:5px;color:#e5f2f8;z-index:1700}
+/* Results are a top-level overlay, centered below the ownership progress cards. */
+#ttLandownerResults{position:fixed;top:158px;left:50%;transform:translateX(-50%);width:min(530px,calc(100vw - 28px));max-height:min(480px,calc(100dvh - 172px));overflow-y:auto;overscroll-behavior:contain;background:rgba(9,18,25,.97);border:1px solid #466273;border-radius:12px;box-shadow:0 16px 46px #000e,0 0 0 1px #1b3238;padding:5px;color:#e5f2f8;z-index:7000;pointer-events:auto;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#ttLandownerResults .tt-owner-panel-head{position:sticky;top:-5px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;background:#101d28;border-bottom:1px solid #34505e;color:#87dce9;font-size:10px;font-weight:750;letter-spacing:1.2px;z-index:2}
+#ttLandownerResults .tt-owner-panel-close{width:29px;height:28px;min-width:29px;background:#1a2a34;border:1px solid #385263;border-radius:6px;color:#e5f2f8;cursor:pointer;font:18px/1 system-ui}
+#ttLandownerResults .tt-owner-panel-close:hover{background:#2d495a}
+@media(max-width:600px){#ttLandownerResults{width:calc(100vw - 20px);max-height:calc(100dvh - 164px)}}
 #ttLandownerResults[hidden]{display:none!important}
 .tt-owner-result{display:block;width:100%;border:none;border-bottom:1px solid #2b3945;background:transparent;color:#edfaff;padding:9px 10px;text-align:left;font:inherit;cursor:pointer}
 .tt-owner-result:hover,.tt-owner-result:focus{background:#1c3543;outline:0}
@@ -168,7 +173,7 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 .tt-owner-msg{font-size:11px;color:#b5cad3;padding:10px;line-height:1.35}
 @media(max-width:1000px){#ttLandownerSearchBar{flex:1 1 245px;min-width:175px;margin-left:4px}#ttLandownerGo{padding:0 7px}#ttLandownerQuery{font-size:11px}header .status{max-width:100px}}
 @media(max-width:740px){header{flex-wrap:wrap;row-gap:6px}#ttLandownerSearchBar{order:20;flex:1 0 100%;width:100%;min-width:0;margin:0}header .status{margin-left:auto;max-width:90px}#drawer{top:103px!important}#ttLogoOverlay{top:115px!important}}
-</style></head><body><div id="map"></div><img id="ttLogoOverlay" alt="Project logo" hidden><header><button id="menuBtn" class="btn">☰ Commands</button><h1>TerraTrace <b>Field Software</b></h1><span class="tt-powered">Powered by Integrity Positions LLC</span><form id="ttLandownerSearchBar" role="search" autocomplete="off"><div class="tt-owner-search-controls"><input id="ttLandownerQuery" name="landowner" type="search" autocomplete="off" spellcheck="false" aria-label="Search landowner name" placeholder="Search landowner name…" minlength="2"><button id="ttLandownerGo" type="submit" aria-label="Find landowner" title="Search landowner">⌕ Search</button></div><div id="ttLandownerResults" class="tt-owner-results" role="listbox" aria-label="Landowner matches" hidden></div></form><div class="status" id="status">READY</div></header><aside class="drawer open" id="drawer"><section id="etDrawerProjects" hidden aria-label="Enterprise Cloud Projects">
+</style></head><body><div id="map"></div><img id="ttLogoOverlay" alt="Project logo" hidden><header><button id="menuBtn" class="btn">☰ Commands</button><h1>TerraTrace <b>Field Software</b></h1><span class="tt-powered">Powered by Integrity Positions LLC</span><form id="ttLandownerSearchBar" role="search" autocomplete="off"><div class="tt-owner-search-controls"><input id="ttLandownerQuery" name="landowner" type="search" autocomplete="off" spellcheck="false" aria-label="Search landowner name" placeholder="Search landowner name…" minlength="2"><button id="ttLandownerGo" type="submit" aria-label="Find landowner" title="Search landowner">⌕ Search</button></div></form><div class="status" id="status">READY</div></header><div id="ttLandownerResults" class="tt-owner-results" role="listbox" aria-label="Landowner matches" hidden></div><aside class="drawer open" id="drawer"><section id="etDrawerProjects" hidden aria-label="Enterprise Cloud Projects">
   <details class="tt-section" open>
     <summary>ENTERPRISE CLOUD PROJECTS</summary>
     <div class="tt-section-body">
@@ -4447,10 +4452,27 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
  window.ttLandownerOwnerName=ownerName;
  const norm=s=>String(s||'').normalize('NFKD').toLowerCase().replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
  let active=0,mark=null,matches=[],seen=new Set();
- function notice(s){const e=document.createElement('div');e.className='tt-owner-msg';e.textContent=s;results.appendChild(e);results.hidden=false;}
+ function positionPanel(){
+  const cardRow=document.getElementById('tt-tract-progress');
+  const header=document.querySelector('body > header');
+  const cardBottom=cardRow?.getBoundingClientRect().bottom||0;
+  const headerBottom=header?.getBoundingClientRect().bottom||0;
+  const viewportHeight=window.visualViewport?.height||window.innerHeight;
+  const top=Math.min(Math.max(148,Math.ceil(cardBottom+12),Math.ceil(headerBottom+12)),Math.max(102,viewportHeight-116));
+  results.style.top=top+'px';
+  results.style.maxHeight=Math.max(100,viewportHeight-top-12)+'px';
+ }
+ function addPanelHeader(){
+  const head=document.createElement('div');head.className='tt-owner-panel-head';
+  const label=document.createElement('span');label.textContent='LANDOWNER MATCHES'+(matches.length?' · '+matches.length:'');
+  const close=document.createElement('button');close.type='button';close.className='tt-owner-panel-close';close.setAttribute('aria-label','Close landowner results');close.textContent='×';
+  close.addEventListener('click',()=>{active++;results.hidden=true;submit.disabled=false;});
+  head.append(label,close);results.append(head);
+ }
+ function notice(s){if(!results.querySelector('.tt-owner-panel-head'))addPanelHeader();const e=document.createElement('div');e.className='tt-owner-msg';e.textContent=s;results.appendChild(e);positionPanel();results.hidden=false;}
  function clear(){results.replaceChildren();matches=[];seen=new Set();}
  function showHits(extra=''){
-  results.replaceChildren();if(!matches.length){notice(extra||'No landowners found. Try another name or check the source layer owner fields.');return;}
+  results.replaceChildren();addPanelHeader();if(!matches.length){notice(extra||'No landowners found. Try another name or check the source layer owner fields.');return;}
   matches.sort((a,b)=>Number(b.owner.toLowerCase().startsWith(input.value.trim().toLowerCase()))-Number(a.owner.toLowerCase().startsWith(input.value.trim().toLowerCase()))||a.owner.localeCompare(b.owner));
   const fragment=document.createDocumentFragment();for(const match of matches.slice(0,80)){
    const btn=document.createElement('button');btn.type='button';btn.className='tt-owner-result';btn.setAttribute('role','option');
@@ -4458,7 +4480,7 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
    const meta=document.createElement('small');meta.textContent=[match.parcel?'Parcel '+match.parcel:'',match.source].filter(Boolean).join(' · ');btn.append(meta);
    btn.addEventListener('click',()=>zoomTo(match));fragment.append(btn);
   }results.append(fragment);
-  if(extra)notice(extra);results.hidden=false;
+  if(extra)notice(extra);positionPanel();results.hidden=false;
  }
  function bbox(feature){if(typeof turf!=='undefined'){try{return turf.bbox(feature)}catch{}}
   const stack=[feature.geometry?.coordinates];let b=[Infinity,Infinity,-Infinity,-Infinity];while(stack.length){const c=stack.pop();if(!Array.isArray(c))continue;if(typeof c[0]==='number'){b=[Math.min(b[0],c[0]),Math.min(b[1],c[1]),Math.max(b[2],c[0]),Math.max(b[3],c[1])];}else stack.push(...c);}return b.every(Number.isFinite)?b:null;}
@@ -4473,7 +4495,7 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
  }
  function add(m){const b=m.bbox||[];if(!Array.isArray(b)||b.length!==4||!b.every(Number.isFinite))return;
   const key=[norm(m.owner),norm(m.source),b.map(x=>x.toFixed(5)).join(',')].join('|');if(seen.has(key))return;seen.add(key);matches.push(m);}
- async function zoomTo(match){const run=++active;submit.disabled=true;try{
+ async function zoomTo(match){const run=++active;results.hidden=true;submit.disabled=true;try{
    const map=window.ttMapForCompanyLayers;if(!map)throw Error('Map has not finished loading');
    const feature=match.remote?await window.ttCompanyGIS.getOwnerFeature(match):match.featureObject;
    if(run!==active)return;
@@ -4494,7 +4516,8 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
  form.addEventListener('submit',e=>{e.preventDefault();search(input.value.trim());});
  input.addEventListener('input',()=>{active++;clear();results.hidden=true;submit.disabled=false;});
  input.addEventListener('keydown',e=>{if(e.key==='Escape'){active++;results.hidden=true;input.blur();}});
- document.addEventListener('pointerdown',e=>{if(!form.contains(e.target))results.hidden=true;});
+ document.addEventListener('pointerdown',e=>{if(!form.contains(e.target)&&!results.contains(e.target))results.hidden=true;});
+ window.addEventListener('resize',()=>{if(!results.hidden)positionPanel();});
  window.addEventListener('tt-enterprise-project-open',()=>{active++;clear();results.hidden=true;if(mark){mark.remove();mark=null;}});
  window.addEventListener('tt-enterprise-logout',()=>{active++;clear();results.hidden=true;if(mark){mark.remove();mark=null;}});
 })();

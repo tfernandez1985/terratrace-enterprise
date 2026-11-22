@@ -3250,6 +3250,7 @@ const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const ENTERPRISE_WORKER_URL='https://terratrace-enterprise-dev.supersurveyor1985.workers.dev';
 let token='',me=null,selected=null,selectedRev=null,projects=[],companies=[],users=[],view='projects';
 window.ttEnterpriseCurrentProjectId=()=>selected?.id||null;window.ttEnterpriseSessionToken=()=>token;window.ttEnterpriseWorkerURL=ENTERPRISE_WORKER_URL;
+window.ttEnterpriseUser=()=>me;window.ttEnterpriseOpenProject=id=>openProject(id);window.ttEnterpriseReloadProjects=()=>refreshAll();
 const canEdit=()=>!!me&&['super_admin','company_admin','management'].includes(me.role);
 function drawerState(){const panel=$('etDrawerProjects');if(!panel)return;panel.hidden=!me;if(!me)return;$('etDrawerIdentity').textContent=`${me.name} · ${me.role} · ${me.company_id||'All companies'}`;$('etDrawerSuperAdmin').hidden=me.role!=='super_admin';$('etDrawerNew').hidden=!canEdit();$('etDrawerSync').hidden=false;$('etDrawerSync').textContent=me.role==='viewer'?'↻ Sync CAD + Photos + Paperwork':'↻ Sync Changes';$('etDrawerCurrent').textContent=selected?`Current: ${selected.name} · revision ${selectedRev}`:'Open an Enterprise cloud project to begin.';}
 function syncProjectSelect(value){$('etProjectsSelect').value=value||'';$('etDrawerProjectSelect').value=value||'';}
@@ -4417,6 +4418,207 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  window.ttLocalGISPreview=preview;
  const m=window.ttMapForCompanyLayers;if(m){let timer=null;m.on('moveend',()=>{clearTimeout(timer);timer=setTimeout(()=>preview(),320);});}
 })();
+</script>
+
+<style id="tt-company-collab-styles">
+/* Command-center styling: standalone left-drawer collaboration panels. */
+#ttCompanySection,#ttActivitySection,#ttProjectDocsSection{background:rgba(4,7,10,.55)}
+#ttCompanySection .tt-new-panel,#ttActivitySection .tt-new-panel,#ttProjectDocsSection .tt-new-panel{font-size:12px;color:#e3eff1}
+.tt-new-panel{padding:3px 1px 14px}
+.tt-new-panel input,.tt-new-panel select{background:#0d1519;border:1px solid #3a5158;color:#f4f9fa;border-radius:8px;margin:4px 0 9px;width:100%;min-height:36px}
+.tt-new-panel label{font-size:11px;color:#b9cbca}
+.tt-new-panel .btn{background:#172024;border:1px solid #415457;color:#eaf4f0;border-radius:8px;text-align:center!important;font-size:11px;padding:9px 7px;width:100%;margin:4px 0}
+.tt-new-panel .btn.primary,.tt-mini.primary{background:#15564a;border-color:#42a28e}
+.tt-new-panel .btn:disabled{opacity:.4}
+.tt-new-muted{font-size:11px;color:#aac0c2;line-height:1.5;margin:6px 0 10px}
+.tt-new-subtitle{font-weight:750;letter-spacing:.7px;color:#7ed9c9;font-size:11px;border-top:1px solid #34464b;padding:14px 0 7px;margin-top:12px}
+.tt-new-item,.tt-new-invite,.tt-new-event,.tt-new-seat{background:#101a20;border:1px solid #30444a;border-radius:9px;padding:9px;margin:7px 0;color:#eaf2f4;overflow-wrap:anywhere}
+.tt-new-item{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap}
+.tt-new-item>div:first-child{min-width:0;flex:1}
+.tt-new-item b,.tt-new-invite b,.tt-new-event b,.tt-new-seat b{display:block;font-size:11px;overflow-wrap:anywhere}
+.tt-new-item small,.tt-new-invite small,.tt-new-event small,.tt-new-seat small{display:block;color:#a5b7be;font-size:10px;line-height:1.4;margin-top:4px}
+.tt-new-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.tt-new-actions>*{flex:1}
+.tt-mini{padding:7px 8px;border-radius:7px;border:1px solid #3d5659;background:#1b282b;color:#eaf4ee;cursor:pointer;white-space:nowrap;font-size:10px}
+.tt-mini.danger{color:#ffc1b7;border-color:#86504b}
+.tt-new-seat{display:flex!important;align-items:center;gap:10px;cursor:pointer}
+.tt-new-seat input{width:17px;height:17px;flex:none;margin:0;accent-color:#58cbb1}
+.tt-new-seat span{min-width:0}
+.tt-new-event{border-left:3px solid #51a88e}
+.tt-new-event-head{display:flex;justify-content:space-between;align-items:start;gap:5px}
+.tt-new-event>div:nth-child(2){margin:8px 0 5px;line-height:1.35}
+.tt-new-event button{display:block;margin:8px 0 0 auto}
+.tt-doc-entry .tt-new-actions{flex:0 1 auto}
+.tt-doc-entry .tt-new-actions>*{flex:0 0 auto}
+.tt-app-notification{position:relative;background:#0d1719;border:1px solid #3b5857;color:#e9f4f0;border-radius:8px;padding:7px 10px;font:13px system-ui;cursor:pointer;pointer-events:auto}
+.tt-app-notification span{position:absolute;top:-6px;right:-5px;border-radius:20px;min-width:16px;padding:1px 4px;background:#ba5b49;color:white;font-size:10px;font-weight:750}
+#ttActivityButtonCount[hidden]{display:none!important}
+
+</style>
+<script id="tt-company-collab-script">
+/* TerraTrace Company Sharing + Activity Notifications + Project Document Center.
+   Uses the existing Enterprise login bearer token; no credentials in markup. */
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const authed=()=>!!window.ttEnterpriseSessionToken?.();
+const user=()=>window.ttEnterpriseUser?.()||null;
+const api=(path,method='GET',body=null)=>window.terraTraceEnterpriseRequest(path,method,body);
+const pid=()=>window.ttEnterpriseCurrentProjectId?.()||'';
+let projects=[],invitations=[],events=[],eventLatest=0,unread=0,docFiles=[],folders=[],seatRecords=[],shares=[],pending=[],busy=false;
+let shareProject='',seatProject='',docProject='',docFolder='',docSearch='',lastIdentity='';
+const set=id=>$(id);
+const say=(id,msg,bad=false)=>{const e=$(id);if(e){e.textContent=msg;e.style.color=bad?'#ffb2a2':'#a9d2c8';}};
+const admin=()=>['super_admin','company_admin','management'].includes(user()?.role);
+const inboxAdmin=()=>['super_admin','company_admin'].includes(user()?.role);
+const project=id=>projects.find(p=>p.id===id);
+const writable=id=>!!project(id)&&user()?.role!=='viewer'&&project(id).permission!=='viewer';
+const optionList=(arr,selected,label)=>`<option value="">${esc(label)}</option>`+arr.map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}${p.access==='shared'?' · Shared':''}</option>`).join('');
+function updateSelections(){
+ const master=projects.filter(p=>p.access==='master');
+ if(!master.some(p=>p.id===shareProject))shareProject=master.find(p=>p.id===pid())?.id||master[0]?.id||'';
+ if(!projects.some(p=>p.id===seatProject))seatProject=projects.find(p=>p.id===pid())?.id||projects[0]?.id||'';
+ if(!projects.some(p=>p.id===docProject))docProject=projects.find(p=>p.id===pid())?.id||projects[0]?.id||'';
+ $('ttCompanyProject').innerHTML=optionList(master,shareProject,'Select master project');
+ $('ttSeatProject').innerHTML=optionList(projects,seatProject,'Select project');
+ $('ttDocumentProject').innerHTML=optionList(projects,docProject,'Select project');
+ $('ttShareManager').hidden=!admin();$('ttSeatManager').hidden=!admin();
+ $('ttUploadDocs').disabled=!writable(docProject);$('ttCreateDocFolder').disabled=!writable(docProject);
+}
+async function getProjects(){const r=await api('/v1/projects');projects=r.projects||[];updateSelections();return projects;}
+async function loadShares(){if(!admin()||!shareProject){shares=[];pending=[];drawShares();return;}
+ try{const r=await api(`/v1/projects/${encodeURIComponent(shareProject)}/shares`);shares=r.shares||[];pending=r.pending||[];drawShares();}
+ catch(e){say('ttShareStatus',e.message,true);}
+}
+function drawShares(){
+ const list=$('ttShareList');
+ const a=shares.map(s=>`<div class="tt-new-item"><div><b>${esc(s.company_name||s.company_id)}</b><small>Connected · ${esc(s.permission)} access</small></div><button type="button" class="tt-mini" data-revoke="${esc(s.company_id)}">Remove</button></div>`);
+ a.push(...pending.map(s=>`<div class="tt-new-item"><div><b>${esc(s.company_name||s.invited_email)}</b><small>Awaiting acceptance · ${esc(s.permission)}</small></div><button type="button" class="tt-mini" data-revoke="${esc(s.target_company_id)}">Cancel</button></div>`));
+ list.innerHTML=a.join('')||'<p class="tt-new-muted">No companies connected. Invite a registered company administrator above.</p>';
+}
+async function invite(){const to=$('ttInviteEmail').value.trim(),role=$('ttInvitePermission').value;
+ if(!shareProject||!to)return say('ttShareStatus','Choose a master project and enter the other company administrator’s email.',true);
+ $('ttInviteButton').disabled=true;
+ try{await api(`/v1/projects/${encodeURIComponent(shareProject)}/company-invitations`,'POST',{email:to,role});$('ttInviteEmail').value='';say('ttShareStatus','Invitation ready. The other company admin will see it when they sign in.');await loadShares();}
+ catch(e){say('ttShareStatus',e.message,true);}finally{$('ttInviteButton').disabled=false;}
+}
+async function loadInvitations(){if(!inboxAdmin()){invitations=[];drawInvitations();return;}
+ try{const r=await api('/v1/invitations');invitations=r.invitations||[];drawInvitations();}
+ catch(e){say('ttInviteInboxStatus',e.message,true);}
+}
+function drawInvitations(){
+ $('ttInviteInbox').innerHTML=invitations.length?invitations.map(x=>`<div class="tt-new-invite"><b>${esc(x.project_name)}</b><small>From ${esc(x.master_company)} · ${esc(x.permission)} access</small><div class="tt-new-actions"><button class="tt-mini primary" data-invite-accept="${esc(x.id)}">Accept</button><button class="tt-mini" data-invite-decline="${esc(x.id)}">Decline</button></div></div>`).join(''):'<p class="tt-new-muted">No pending invitations.</p>';
+ $('ttIncomingCount').textContent=invitations.length?`(${invitations.length})`:'';
+ $('ttCompanyInbox').hidden=!inboxAdmin();
+}
+async function decision(id,action){await api(`/v1/invitations/${encodeURIComponent(id)}/${action}`,'POST',{});await getProjects();await Promise.all([loadInvitations(),loadShares(),loadSeats(),loadDocs()]);window.ttEnterpriseReloadProjects?.();say('ttInviteInboxStatus',action==='accept'?'Project added to your company.':'Invitation declined.');}
+async function loadSeats(){if(!admin()||!seatProject){seatRecords=[];drawSeats();return;}
+ try{const r=await api(`/v1/projects/${encodeURIComponent(seatProject)}/seats`);seatRecords=r.seats||[];drawSeats();}
+ catch(e){say('ttSeatStatus',e.message,true);}
+}
+function drawSeats(){
+ $('ttSeatList').innerHTML=seatRecords.length?seatRecords.map(s=>`<label class="tt-new-seat"><input type="checkbox" data-seat="${esc(s.id)}" ${s.hidden?'':'checked'} ${s.id===user()?.id?'disabled':''}><span><b>${esc(s.name)}</b><small>${esc(s.email)} · ${esc(s.role)}${!s.assigned?' · Not yet assigned':''}</small></span></label>`).join(''):'<p class="tt-new-muted">No seats in this company.</p>';
+}
+async function seatChange(el){const s=seatRecords.find(x=>x.id===el.dataset.seat);if(!s)return;const visible=el.checked;el.disabled=true;
+ try{
+  // Existing owned field/viewer projects require an assignment as well as visibility.
+  if(visible&&!s.assigned&&project(seatProject)?.access==='master')await api(`/v1/projects/${encodeURIComponent(seatProject)}/access`,'PUT',{user_id:s.id});
+  await api(`/v1/projects/${encodeURIComponent(seatProject)}/seats/${encodeURIComponent(s.id)}`,'PUT',{hidden:!visible});
+  say('ttSeatStatus',`${s.name} ${visible?'can now see':'can no longer access'} this project.`);await loadSeats();
+ }catch(e){el.checked=!visible;say('ttSeatStatus',e.message,true);}finally{el.disabled=false;}
+}
+function fmt(t){if(!t)return '';const d=new Date(t.replace(' ','T')+(t.includes('Z')?'':'Z'));return Number.isFinite(d.getTime())?d.toLocaleString():t;}
+async function loadEvents(){if(!authed())return;
+ try{const r=await api('/v1/events');events=r.events||[];unread=r.unread_count||0;eventLatest=events[0]?.id||0;drawEvents();}
+ catch(e){say('ttActivityStatus',e.message,true);}
+}
+function drawEvents(){
+ $('ttNotifications').innerHTML=events.length?events.map(e=>`<div class="tt-new-event"><div class="tt-new-event-head"><b>${esc(e.actor_name)}</b><small>${esc(fmt(e.created_at))}</small></div><div>${esc(e.message)}</div><small>${esc(e.actor_company||e.actor_company_id||'TerraTrace')} · ${esc(e.project_name)}${e.revision?' · r'+e.revision:''}</small><button type="button" class="tt-mini" data-notice-project="${esc(e.project_id)}">Open Project</button></div>`).join(''):'<p class="tt-new-muted">No project activity yet. When someone syncs changes, the update will appear here for everyone authorized on that project.</p>';
+ $('ttActivityCount').textContent=unread?`(${unread})`:'';
+ $('ttActivityButtonCount').textContent=unread?String(Math.min(unread,99))+(unread>99?'+':''):'';
+ $('ttActivityButtonCount').hidden=!unread;
+ say('ttActivityStatus',unread?`${unread} unread notification${unread===1?'':'s'}`:'All caught up.');
+}
+async function readEvents(){if(!eventLatest)return;await api('/v1/events/read','POST',{last_event_id:eventLatest});await loadEvents();}
+async function openNotice(id){
+ if(!project(id))throw Error('Project is no longer assigned to your seat.');
+ if(!confirm('Open the latest cloud project? Any unsynced map edits currently on screen could be lost.'))return;
+ await window.ttEnterpriseOpenProject?.(id);
+}
+function foldersOptions(){return '<option value="">All folders / Project root</option>'+folders.map(f=>`<option value="${esc(f.id)}" ${f.id===docFolder?'selected':''}>${esc(f.name)}</option>`).join('');}
+function uploadOptions(){return '<option value="">Project root (no folder)</option>'+folders.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');}
+async function loadDocs(){if(!authed()||!docProject){folders=[];docFiles=[];drawDocs();return;}
+ try{const id=encodeURIComponent(docProject);const [d,f]=await Promise.all([api(`/v1/projects/${id}/documents`),api(`/v1/projects/${id}/documents/folders`)]);docFiles=d.documents||[];folders=f.folders||[];if(docFolder&&!folders.some(f=>f.id===docFolder))docFolder='';drawDocs();}
+ catch(e){say('ttDocStatus',e.message,true);}
+}
+function drawDocs(){
+ $('ttDocFolderFilter').innerHTML=foldersOptions();$('ttDocUploadFolder').innerHTML=uploadOptions();$('ttDocUploadFolder').value=docFolder||'';
+ const q=docSearch.trim().toLowerCase();const list=docFiles.filter(d=>(!docFolder||d.folder_id===docFolder)&&(q?d.name.toLowerCase().includes(q):true));
+ $('ttDocumentList').innerHTML=list.length?list.map(d=>`<div class="tt-new-item tt-doc-entry"><div><b title="${esc(d.name)}">${esc(d.name)}</b><small>${esc(d.uploaded_by)} · ${esc(fmt(d.created_at))} · ${(d.size_bytes/1048576).toFixed(2)} MB</small></div><div class="tt-new-actions"><button class="tt-mini" data-doc-download="${esc(d.id)}">Download</button>${['application/pdf','image/png','image/jpeg','image/webp'].includes(d.mime_type)?`<button class="tt-mini" data-doc-preview="${esc(d.id)}">View</button>`:''}${writable(docProject)?`<button class="tt-mini danger" data-doc-delete="${esc(d.id)}">Delete</button>`:''}</div></div>`).join(''):'<p class="tt-new-muted">No documents in this folder. Upload files directly to this project, separate from tract attachments.</p>';
+ $('ttUploadDocs').disabled=!writable(docProject);$('ttCreateDocFolder').disabled=!writable(docProject);
+ $('ttDocCount').textContent=`${docFiles.length} project document${docFiles.length===1?'':'s'}`;
+}
+async function uploadDocs(files){if(!docProject||!writable(docProject))return say('ttDocStatus','Select an editable project first.',true);
+ const folder=$('ttDocUploadFolder').value;let success=0;
+ for(const file of files){if(file.size>20*1048576){say('ttDocStatus',file.name+' exceeds the 20 MB limit.',true);continue;}
+  try{say('ttDocStatus','Uploading '+file.name+'…');const r=await fetch(`${window.ttEnterpriseWorkerURL}/v1/projects/${encodeURIComponent(docProject)}/documents`,{method:'POST',headers:{authorization:'Bearer '+window.ttEnterpriseSessionToken(),'content-type':file.type||'application/octet-stream','x-file-name':encodeURIComponent(file.name),'x-folder-id':folder},body:file});const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'Upload failed');success++;}
+  catch(e){say('ttDocStatus',file.name+': '+e.message,true);await loadDocs();return;}
+ }
+ await loadDocs();say('ttDocStatus',success+' file'+(success===1?'':'s')+' uploaded to this project.');
+}
+async function documentBlob(id){const r=await fetch(`${window.ttEnterpriseWorkerURL}/v1/projects/${encodeURIComponent(docProject)}/documents/${encodeURIComponent(id)}`,{headers:{authorization:'Bearer '+window.ttEnterpriseSessionToken()}});if(!r.ok){const b=await r.json().catch(()=>({}));throw Error(b.error||'Unable to fetch document');}return r.blob();}
+async function fileAction(id,action){const d=docFiles.find(f=>f.id===id);if(!d)return;
+ if(action==='delete'){if(!confirm('Delete '+d.name+' for everyone who can access this project?'))return;await api(`/v1/projects/${encodeURIComponent(docProject)}/documents/${encodeURIComponent(id)}`,'DELETE');await loadDocs();say('ttDocStatus','Deleted '+d.name);return;}
+ const win=action==='preview'?window.open('','_blank'):null;
+ try{const blob=await documentBlob(id),url=URL.createObjectURL(blob);
+  if(action==='preview'){if(win){win.location.href=url;}else{const a=document.createElement('a');a.href=url;a.target='_blank';a.click();}}
+  else{const a=document.createElement('a');a.href=url;a.download=d.name;document.body.append(a);a.click();a.remove();}
+  setTimeout(()=>URL.revokeObjectURL(url),90000);
+ }catch(e){if(win)win.close();throw e;}
+}
+function init(){if($('ttCompanySection'))return;
+ const drawer=$('drawer');if(!drawer)return;
+ const company=document.createElement('details');company.className='tt-section';company.id='ttCompanySection';
+ company.innerHTML=`<summary>COMPANY SHARING <span id="ttIncomingCount"></span></summary><div class="tt-section-body tt-new-panel">
+  <div id="ttShareManager"><p class="tt-new-muted">Share a master project with another registered TerraTrace company. You keep project ownership and can remove access anytime.</p><label>Master project</label><select id="ttCompanyProject"></select><label>Other company's administrator email</label><input id="ttInviteEmail" type="email" placeholder="admin@contractor.com" autocomplete="email"><label>What can they do?</label><select id="ttInvitePermission"><option value="editor">Editor · See and sync project changes</option><option value="viewer">Viewer · See project only</option></select><button id="ttInviteButton" class="btn primary" type="button">Invite Company</button><p id="ttShareStatus" class="tt-new-muted"></p><div class="tt-new-subtitle">Connected companies & pending invitations</div><div id="ttShareList"></div></div>
+  <div id="ttCompanyInbox"><div class="tt-new-subtitle">Invitations to your company</div><div id="ttInviteInbox"></div><p id="ttInviteInboxStatus" class="tt-new-muted"></p></div>
+  <div id="ttSeatManager"><div class="tt-new-subtitle">Control which seats see each project</div><p class="tt-new-muted">Choose a project, then uncheck an employee to hide it from their account on every device. This restriction is enforced in the Worker.</p><select id="ttSeatProject"></select><div id="ttSeatList"></div><p id="ttSeatStatus" class="tt-new-muted"></p></div>
+ </div>`;
+ const notices=document.createElement('details');notices.className='tt-section';notices.id='ttActivitySection';
+ notices.innerHTML=`<summary>NOTIFICATIONS <span id="ttActivityCount"></span></summary><div class="tt-section-body tt-new-panel"><p id="ttActivityStatus" class="tt-new-muted"></p><div class="tt-new-actions"><button class="btn" type="button" id="ttRefreshActivity">Refresh</button><button class="btn" type="button" id="ttReadActivity">Mark All Read</button></div><div id="ttNotifications"></div></div>`;
+ const docs=document.createElement('details');docs.className='tt-section';docs.id='ttProjectDocsSection';
+ docs.innerHTML=`<summary>DOCUMENT CENTER</summary><div class="tt-section-body tt-new-panel"><p class="tt-new-muted">Upload project PDFs, plats, spreadsheets, and drawings independent of tract attachments. Documents are stored in the shared project.</p><label>Project</label><select id="ttDocumentProject"></select><div class="tt-new-actions"><button class="btn primary" id="ttUploadDocs" type="button">+ Upload Documents</button><button class="btn" id="ttCreateDocFolder" type="button">+ New Folder</button></div><input type="file" id="ttDocInput" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.xls,.xlsx,.doc,.docx,.zip,.kml,.kmz,.dwg,.dxf"><label>Upload into folder</label><select id="ttDocUploadFolder"></select><label>Browse folder</label><select id="ttDocFolderFilter"></select><input id="ttDocSearch" placeholder="Search project documents" aria-label="Search project documents"><div class="tt-new-actions"><button class="btn" id="ttDocRefresh" type="button">Refresh Files</button></div><p class="tt-new-muted" id="ttDocCount"></p><div id="ttDocumentList"></div><p id="ttDocStatus" class="tt-new-muted"></p></div>`;
+ const enterprise=$('etDrawerProjects');if(enterprise){enterprise.insertAdjacentElement('afterend',docs);docs.insertAdjacentElement('beforebegin',notices);notices.insertAdjacentElement('beforebegin',company);}else{drawer.prepend(docs);drawer.prepend(notices);drawer.prepend(company);}
+ const bell=document.createElement('button');bell.className='tt-app-notification';bell.type='button';bell.id='ttActivityBell';bell.innerHTML=`🔔 <span id="ttActivityButtonCount" hidden></span>`;bell.title='Project notifications';
+ $('status')?.insertAdjacentElement('beforebegin',bell);
+ bell.onclick=()=>{drawer.classList.add('open');notices.open=true;notices.scrollIntoView({block:'nearest',behavior:'smooth'});};
+ $('ttCompanyProject').onchange=()=>{shareProject=$('ttCompanyProject').value;loadShares();};$('ttSeatProject').onchange=()=>{seatProject=$('ttSeatProject').value;loadSeats();};$('ttDocumentProject').onchange=()=>{docProject=$('ttDocumentProject').value;docFolder='';loadDocs();};
+ $('ttInviteButton').onclick=invite;
+ $('ttShareList').onclick=async e=>{const c=e.target.closest('[data-revoke]');if(!c)return;if(!confirm('Remove this company’s access or pending invitation?'))return;try{await api(`/v1/projects/${encodeURIComponent(shareProject)}/shares/${encodeURIComponent(c.dataset.revoke)}`,'DELETE');await loadShares();}catch(err){say('ttShareStatus',err.message,true);}};
+ $('ttInviteInbox').onclick=async e=>{const a=e.target.closest('[data-invite-accept]'),d=e.target.closest('[data-invite-decline]');try{if(a)await decision(a.dataset.inviteAccept,'accept');if(d)await decision(d.dataset.inviteDecline,'decline');}catch(err){say('ttInviteInboxStatus',err.message,true);}};
+ $('ttSeatList').onchange=e=>{if(e.target.matches('[data-seat]'))seatChange(e.target);};
+ $('ttRefreshActivity').onclick=loadEvents;$('ttReadActivity').onclick=()=>readEvents().catch(e=>say('ttActivityStatus',e.message,true));
+ $('ttNotifications').onclick=e=>{const b=e.target.closest('[data-notice-project]');if(b)openNotice(b.dataset.noticeProject).catch(err=>say('ttActivityStatus',err.message,true));};
+ $('ttUploadDocs').onclick=()=>$('ttDocInput').click();$('ttDocInput').onchange=e=>{const f=[...e.target.files];e.target.value='';if(f.length)uploadDocs(f);};
+ $('ttCreateDocFolder').onclick=async()=>{const name=prompt('New document folder name');if(!name?.trim())return;try{await api(`/v1/projects/${encodeURIComponent(docProject)}/documents/folders`,'POST',{name:name.trim()});await loadDocs();say('ttDocStatus','Folder created: '+name.trim());}catch(e){say('ttDocStatus',e.message,true);}};
+ $('ttDocFolderFilter').onchange=()=>{docFolder=$('ttDocFolderFilter').value;drawDocs();};$('ttDocSearch').oninput=()=>{docSearch=$('ttDocSearch').value;drawDocs();};$('ttDocRefresh').onclick=loadDocs;
+ $('ttDocumentList').onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.dataset.docDownload)await fileAction(b.dataset.docDownload,'download');if(b.dataset.docPreview)await fileAction(b.dataset.docPreview,'preview');if(b.dataset.docDelete)await fileAction(b.dataset.docDelete,'delete');}catch(err){say('ttDocStatus',err.message,true);}};
+ window.addEventListener('tt-enterprise-login',()=>refreshAll());window.addEventListener('tt-enterprise-logout',()=>{projects=[];events=[];invitations=[];unread=0;eventLatest=0;lastIdentity='';clearUI();});
+ window.addEventListener('tt-enterprise-project-open',()=>{const id=pid();if(id&&projects.some(p=>p.id===id)){shareProject=projects.find(p=>p.id===id&&p.access==='master')?.id||shareProject;seatProject=docProject=id;updateSelections();loadSeats();loadDocs();}});
+ setInterval(()=>{if(authed()&&!document.hidden)loadEvents();},12000);
+ // Refresh seat/project selectors regularly so newly shared or restricted projects
+ // appear/disappear across signed-in devices without reloading the browser tab.
+ setInterval(()=>{if(authed()&&!document.hidden){getProjects().then(()=>window.ttEnterpriseReloadProjects?.()).catch(e=>say('ttShareStatus',e.message,true));}},30000);
+ setInterval(()=>{if(authed()&&!document.hidden)loadInvitations();},60000);
+ clearUI();
+}
+function clearUI(){for(const k of ['ttShareList','ttInviteInbox','ttSeatList','ttNotifications','ttDocumentList']){if($(k))$(k).innerHTML='';}if($('ttActivityCount'))$('ttActivityCount').textContent='';if($('ttActivityButtonCount'))$('ttActivityButtonCount').hidden=true;}
+async function refreshAll(){if(!authed()||busy)return;busy=true;try{
+ const me=user();if(me?.id!==lastIdentity){lastIdentity=me?.id||'';shareProject='';seatProject='';docProject='';}
+ await getProjects();await Promise.allSettled([loadShares(),loadInvitations(),loadSeats(),loadEvents(),loadDocs()]);
+ }catch(e){say('ttShareStatus',e.message,true);}finally{busy=false;}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+
 </script>
 </body></html>
 <style id="tt-tract-documents-style">

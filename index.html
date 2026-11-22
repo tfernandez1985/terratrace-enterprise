@@ -174,15 +174,15 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 </div>
 <input id="ttShpUploadInput" type="file" accept=".zip,.fgb,.shp,.shx,.dbf,.prj,.cpg" multiple hidden>
 <input id="ttShpFolderInput" type="file" webkitdirectory directory multiple hidden>
-<div class="note" id="ttShpUploadStatus" role="status">Choose files or a land-parcels folder. These files are queued for sharing when you sync; your source files remain unchanged.</div>
+<div class="note" id="ttShpUploadStatus" role="status">Choose files or a land-parcels folder. Imported layers will preview on the map; Sync Changes publishes them to the company GIS library. Source files are unchanged.</div>
  <div id="ttCompanyGISPanel" style="margin:12px 0;border:1px solid #365367;border-radius:8px;background:#0c151c;padding:9px">
   <div style="font-size:11px;font-weight:750;letter-spacing:1px;color:#56d9ef">☁ COMPANY GIS LIBRARY · CLOUDFLARE R2</div>
-  <div class="note" style="margin:6px 0">Private to your company. Choose shared layers here to include them in your GIS corridor buffer searches.</div>
+  <div class="note" style="margin:6px 0">Private to your company. Check a shared layer to preview parcels in the current map view and include it in buffer searches. Map previews are capped for device performance.</div>
   <div class="flex"><button id="ttCompanyGISShare" class="btn primary" type="button">↑ Share Pending GIS</button><button id="ttCompanyGISRefresh" class="btn" type="button">↻ Refresh Library</button></div>
   <div id="ttCompanyGISStatus" class="note" role="status" style="margin:7px 0">Sign in to see your company GIS datasets.</div>
   <div id="ttCompanyGISList"></div>
  </div>
-<div id="ttLocalGISList" style="margin:8px 0;font-size:11px"></div><button class="btn" id="loadCL" style="display:none">Import ordered CL CSV</button><button class="btn" id="loadProject">Open saved project JSON</button><button class="btn" id="saveProject">Save project JSON</button><label>Public or signed GeoJSON URL (optional)</label><input id="geoUrl" placeholder="https://.../project.geojson"><button class="btn" id="fetchGeo">Load URL layer</button><div class="note">Import local GIS files using the iPad Files picker, or a CORS-enabled GeoJSON URL. Large SHP/GDB/GPKG may need a server-side tile service.</div><h2>GIS DATA HUB / CORRIDOR</h2><div id="pythonGISPanel" style="background:#0a111b;border:1px solid #365367;border-radius:8px;padding:10px;margin:6px 0 14px"><div style="color:#46dbef;font-weight:750;letter-spacing:1px">☁ SHARED GIS DATA HUB · INDEXED FLATGEOBUF</div><div class="note" style="margin:5px 0">Search indexed FlatGeobuf files in Cloudflare R2 by GIS category and your selected corridor. No manual file selection or local GIS database required.</div><label style="display:none">GIS URL (server-managed)</label><input style="display:none" id="pythonGISURL" value="" spellcheck="false" autocomplete="off"><label style="display:none">GIS token (server-managed)</label><input style="display:none" id="pythonGISToken" type="password" placeholder="Enter the GIS Worker viewer/admin token" autocomplete="off" spellcheck="false"><div class="note">GIS is shared read-only across signed-in companies. The GIS source token stays inside your Enterprise Cloudflare Worker.</div><div class="flex"><button class="btn primary" id="pythonGISConnect" type="button">↻ LOAD SHARED GIS CATEGORIES</button></div><div class="note" id="pythonGISStatus">Connect GIS to load the available R2 FlatGeobuf categories.</div><div class="note" id="pythonGISSearchDetail" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px;border-top:1px solid #284254;padding-top:8px"></div><div id="pythonGISCategories"></div><label><input id="pythonGISEnabled" type="checkbox" checked> Search Cloudflare FlatGeobuf GIS</label><div class="note">Select categories, then tap one KMZ/CAD alignment or one area center. Search uses the entire selected line or circular area at your radius.</div></div><button class="btn primary" id="gisLibrary" style="display:none">＋ Load GIS files from iPad</button><label>Buffer radius (feet, on all sides)</label><input type="number" id="gisRadius" value="1000" min="1" step="any"><button class="btn mode" data-mode="gisPickLine">⌁ Pick Line → Buffer</button><button class="btn mode" data-mode="gisPickArea">▧ Pick Area → Buffer</button><div class="note">Pick Line: tap any part of a project KMZ / CAD line to select its entire alignment. Pick Area: tap one location to search a circular area using the buffer radius. Select categories and search.</div><div style="display:none" id="gisCategoryList" class="note"></div><div style="display:none" id="gisDatasetList" class="note">No additional source files loaded.</div><button class="btn primary" id="gisExtract">SEARCH CHECKED GIS IN BUFFER</button><div id="gisLoadedCategories" style="margin:10px 0;padding:10px;background:#0c151b;border:1px solid #365367;border-radius:8px"><div style="color:#56d9ef;font-weight:750;letter-spacing:1px">LOADED GIS LAYERS</div><div class="note">Show, hide, or remove GIS results by category. This affects this project only, not your Cloudflare R2 source files.</div><div id="gisLoadedCategoryRows" class="note" style="margin-top:8px">No GIS search results loaded.</div></div><button class="btn" style="display:none" id="gisClearLibrary">Clear loaded GIS library</button><button class="btn" style="display:none" id="gisClearPackages">Remove registered regional ZIPs</button><h2>KMZ CENTERLINE / PI EXPORT</h2><button class="btn primary mode" data-mode="exportKmzCL">⌁ PICK KMZ-KML LINE</button><button class="btn" id="exportSelectedKmzCL">Export Selected KMZ CL CSV</button><button class="btn primary" id="exportCADPointsCSV">⌖ EXPORT CAD POINTS / VERTICES CSV</button><div class="note">Choose CAD Points to export all standalone CAD points, or Vertices and tap a CAD / CL / imported KMZ line to export every vertex on that line.</div><button class="btn primary" id="kmzBendSummary">⌁ BENDS — Calculate Bend Counts</button><div class="note">Select a KMZ centerline first. Counts bends by rounded-up angle: 0–30°, 31–45°, and 46–90°.</div><label>Starting station (feet)</label><input id="kmzCLStart" type="number" value="0" step="0.01"><div class="note" id="kmzCLInfo">Tap Export CL, then tap near the end you want as BEGIN. PI markers appear on the selected line only. Export includes coordinates, station, bearings, and bend angles.</div><h2>HDD / BORE DESIGN</h2><button class="btn primary" id="openHddCalculator" type="button">⌁ CALC HDD'S — Open HDD Calculator</button><div class="note">Opens the full HDD creek / ROW calculator without leaving your TerraTrace map.</div><h2>CAD</h2><label><input type="checkbox" id="showVertices"> Show Vertices (CL / CAD / KMZ)</label><button class="btn mode tt-cad-mode" data-mode="select">↖ Select / Drag CAD + KMZ Vertices</button><button class="btn mode tt-cad-mode" data-mode="delete">⌫ Delete Point / Line / Pin / Vertex</button><button class="btn mode tt-cad-mode" data-mode="addVertex">⊕ CALC: Insert Vertex on CL</button><button class="btn mode tt-cad-mode" data-mode="editLine">✎ Edit Polyline / Insert Vertex</button><button class="btn mode tt-cad-mode" data-mode="point">⊙ Drop CAD Point</button><button class="btn" id="keyinPoint">⌖ Key In Northing / Easting</button><button class="btn mode tt-cad-mode" data-mode="circle">◯ Draw Circle (center + radius)</button><button class="btn mode tt-cad-mode" data-mode="copyObject">⧉ Copy Whole Object</button><button class="btn mode tt-cad-mode" data-mode="moveObject">✥ Move Whole Object — Hold Vertex & Drag</button><button class="btn mode tt-cad-mode" data-mode="mirrorObject">⇋ Mirror Whole Object</button><label><input type="checkbox" id="snapEnabled" checked> Snap dragged vertices to nearest line / vertex</label><label>Snap tolerance (screen pixels)</label><input type="number" id="snapTolerance" value="16" min="2" max="60"><button class="btn mode tt-cad-mode" data-mode="photo">▣ Drop Photo Pin</button><button class="btn mode tt-cad-mode" data-mode="draw">⌁ Draw Polyline (Live Preview)</button><button class="btn mode tt-cad-mode" data-mode="offset">⇆ Offset Segment (CAD / KMZ)</button><label>Offset distance (project units)</label><input id="offsetDistance" type="number" min="0" step="any" value="25"><button class="btn mode tt-cad-mode" data-mode="trim">✂ Trim Line</button><button class="btn mode tt-cad-mode" data-mode="intersectLines">⌁ Intersect Lines — Auto Trim</button><button class="btn" id="finishIntersectLines">Finish Intersect Lines</button><button class="btn" id="finishLine">Finish Polyline</button><button class="btn mode tt-cad-mode" data-mode="inverse">↔ Inverse (Snap to PI / Vertex)</button><button class="btn" id="undo">↶ Undo last edit</button><button class="btn" id="resetCL">Restore original imported CL</button><h2>STATIONING</h2><label><input type="checkbox" id="showStationing" checked> Show Stationing</label><button class="btn mode tt-cad-mode" data-mode="stationPick">⌁ Pick CL for Stationing</button><label>Starting station</label><input id="stationingStart" value="0+00" placeholder="0+00"><div class="note" id="stationingInfo">Pick a centerline, then Set Stationing. Labels appear every 200 ft and at each PI. Station equations are applied.</div><div class="flex"><button class="btn primary" id="setStationing">Set Stationing</button><button class="btn" id="redoStationing">Redo Stationing</button></div><button class="btn" id="addEquation">＋ Add Station Equation</button><button class="btn" id="manageEquations">Manage Station Equations</button><div class="note">Enter BACK and AHEAD stations (e.g. 12+50 and 15+00). No map selection required. The BACK station locates the equation along the edited centerline; AHEAD sets downstream stationing.</div><h2>ANNOTATIONS</h2><button class="btn mode tt-cad-mode" data-mode="annotation">➤ Arrow Annotation / Text</button><button class="btn mode tt-cad-mode" data-mode="dimension">↔ Dimension — Pick 2 Points, Drag to Place</button><h2>MAP LAYERS</h2><div class="flex"><button class="btn" id="aerial">Aerial</button><button class="btn" id="street">Street</button><button class="btn" id="topo">Topo</button></div>
+<div id="ttLocalGISList" style="margin:8px 0;font-size:11px"></div><div id="ttLocalGISPreviewStatus" class="note" role="status" style="margin:4px 0 10px"></div><button class="btn" id="loadCL" style="display:none">Import ordered CL CSV</button><button class="btn" id="loadProject">Open saved project JSON</button><button class="btn" id="saveProject">Save project JSON</button><label>Public or signed GeoJSON URL (optional)</label><input id="geoUrl" placeholder="https://.../project.geojson"><button class="btn" id="fetchGeo">Load URL layer</button><div class="note">Import local GIS files using the iPad Files picker, or a CORS-enabled GeoJSON URL. Large SHP/GDB/GPKG may need a server-side tile service.</div><h2>GIS DATA HUB / CORRIDOR</h2><div id="pythonGISPanel" style="background:#0a111b;border:1px solid #365367;border-radius:8px;padding:10px;margin:6px 0 14px"><div style="color:#46dbef;font-weight:750;letter-spacing:1px">☁ SHARED GIS DATA HUB · INDEXED FLATGEOBUF</div><div class="note" style="margin:5px 0">Search indexed FlatGeobuf files in Cloudflare R2 by GIS category and your selected corridor. No manual file selection or local GIS database required.</div><label style="display:none">GIS URL (server-managed)</label><input style="display:none" id="pythonGISURL" value="" spellcheck="false" autocomplete="off"><label style="display:none">GIS token (server-managed)</label><input style="display:none" id="pythonGISToken" type="password" placeholder="Enter the GIS Worker viewer/admin token" autocomplete="off" spellcheck="false"><div class="note">GIS is shared read-only across signed-in companies. The GIS source token stays inside your Enterprise Cloudflare Worker.</div><div class="flex"><button class="btn primary" id="pythonGISConnect" type="button">↻ LOAD SHARED GIS CATEGORIES</button></div><div class="note" id="pythonGISStatus">Connect GIS to load the available R2 FlatGeobuf categories.</div><div class="note" id="pythonGISSearchDetail" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px;border-top:1px solid #284254;padding-top:8px"></div><div id="pythonGISCategories"></div><label><input id="pythonGISEnabled" type="checkbox" checked> Search Cloudflare FlatGeobuf GIS</label><div class="note">Select categories, then tap one KMZ/CAD alignment or one area center. Search uses the entire selected line or circular area at your radius.</div></div><button class="btn primary" id="gisLibrary" style="display:none">＋ Load GIS files from iPad</button><label>Buffer radius (feet, on all sides)</label><input type="number" id="gisRadius" value="1000" min="1" step="any"><button class="btn mode" data-mode="gisPickLine">⌁ Pick Line → Buffer</button><button class="btn mode" data-mode="gisPickArea">▧ Pick Area → Buffer</button><div class="note">Pick Line: tap any part of a project KMZ / CAD line to select its entire alignment. Pick Area: tap one location to search a circular area using the buffer radius. Select categories and search.</div><div style="display:none" id="gisCategoryList" class="note"></div><div style="display:none" id="gisDatasetList" class="note">No additional source files loaded.</div><button class="btn primary" id="gisExtract">SEARCH CHECKED GIS IN BUFFER</button><div id="gisLoadedCategories" style="margin:10px 0;padding:10px;background:#0c151b;border:1px solid #365367;border-radius:8px"><div style="color:#56d9ef;font-weight:750;letter-spacing:1px">LOADED GIS LAYERS</div><div class="note">Show, hide, or remove GIS results by category. This affects this project only, not your Cloudflare R2 source files.</div><div id="gisLoadedCategoryRows" class="note" style="margin-top:8px">No GIS search results loaded.</div></div><button class="btn" style="display:none" id="gisClearLibrary">Clear loaded GIS library</button><button class="btn" style="display:none" id="gisClearPackages">Remove registered regional ZIPs</button><h2>KMZ CENTERLINE / PI EXPORT</h2><button class="btn primary mode" data-mode="exportKmzCL">⌁ PICK KMZ-KML LINE</button><button class="btn" id="exportSelectedKmzCL">Export Selected KMZ CL CSV</button><button class="btn primary" id="exportCADPointsCSV">⌖ EXPORT CAD POINTS / VERTICES CSV</button><div class="note">Choose CAD Points to export all standalone CAD points, or Vertices and tap a CAD / CL / imported KMZ line to export every vertex on that line.</div><button class="btn primary" id="kmzBendSummary">⌁ BENDS — Calculate Bend Counts</button><div class="note">Select a KMZ centerline first. Counts bends by rounded-up angle: 0–30°, 31–45°, and 46–90°.</div><label>Starting station (feet)</label><input id="kmzCLStart" type="number" value="0" step="0.01"><div class="note" id="kmzCLInfo">Tap Export CL, then tap near the end you want as BEGIN. PI markers appear on the selected line only. Export includes coordinates, station, bearings, and bend angles.</div><h2>HDD / BORE DESIGN</h2><button class="btn primary" id="openHddCalculator" type="button">⌁ CALC HDD'S — Open HDD Calculator</button><div class="note">Opens the full HDD creek / ROW calculator without leaving your TerraTrace map.</div><h2>CAD</h2><label><input type="checkbox" id="showVertices"> Show Vertices (CL / CAD / KMZ)</label><button class="btn mode tt-cad-mode" data-mode="select">↖ Select / Drag CAD + KMZ Vertices</button><button class="btn mode tt-cad-mode" data-mode="delete">⌫ Delete Point / Line / Pin / Vertex</button><button class="btn mode tt-cad-mode" data-mode="addVertex">⊕ CALC: Insert Vertex on CL</button><button class="btn mode tt-cad-mode" data-mode="editLine">✎ Edit Polyline / Insert Vertex</button><button class="btn mode tt-cad-mode" data-mode="point">⊙ Drop CAD Point</button><button class="btn" id="keyinPoint">⌖ Key In Northing / Easting</button><button class="btn mode tt-cad-mode" data-mode="circle">◯ Draw Circle (center + radius)</button><button class="btn mode tt-cad-mode" data-mode="copyObject">⧉ Copy Whole Object</button><button class="btn mode tt-cad-mode" data-mode="moveObject">✥ Move Whole Object — Hold Vertex & Drag</button><button class="btn mode tt-cad-mode" data-mode="mirrorObject">⇋ Mirror Whole Object</button><label><input type="checkbox" id="snapEnabled" checked> Snap dragged vertices to nearest line / vertex</label><label>Snap tolerance (screen pixels)</label><input type="number" id="snapTolerance" value="16" min="2" max="60"><button class="btn mode tt-cad-mode" data-mode="photo">▣ Drop Photo Pin</button><button class="btn mode tt-cad-mode" data-mode="draw">⌁ Draw Polyline (Live Preview)</button><button class="btn mode tt-cad-mode" data-mode="offset">⇆ Offset Segment (CAD / KMZ)</button><label>Offset distance (project units)</label><input id="offsetDistance" type="number" min="0" step="any" value="25"><button class="btn mode tt-cad-mode" data-mode="trim">✂ Trim Line</button><button class="btn mode tt-cad-mode" data-mode="intersectLines">⌁ Intersect Lines — Auto Trim</button><button class="btn" id="finishIntersectLines">Finish Intersect Lines</button><button class="btn" id="finishLine">Finish Polyline</button><button class="btn mode tt-cad-mode" data-mode="inverse">↔ Inverse (Snap to PI / Vertex)</button><button class="btn" id="undo">↶ Undo last edit</button><button class="btn" id="resetCL">Restore original imported CL</button><h2>STATIONING</h2><label><input type="checkbox" id="showStationing" checked> Show Stationing</label><button class="btn mode tt-cad-mode" data-mode="stationPick">⌁ Pick CL for Stationing</button><label>Starting station</label><input id="stationingStart" value="0+00" placeholder="0+00"><div class="note" id="stationingInfo">Pick a centerline, then Set Stationing. Labels appear every 200 ft and at each PI. Station equations are applied.</div><div class="flex"><button class="btn primary" id="setStationing">Set Stationing</button><button class="btn" id="redoStationing">Redo Stationing</button></div><button class="btn" id="addEquation">＋ Add Station Equation</button><button class="btn" id="manageEquations">Manage Station Equations</button><div class="note">Enter BACK and AHEAD stations (e.g. 12+50 and 15+00). No map selection required. The BACK station locates the equation along the edited centerline; AHEAD sets downstream stationing.</div><h2>ANNOTATIONS</h2><button class="btn mode tt-cad-mode" data-mode="annotation">➤ Arrow Annotation / Text</button><button class="btn mode tt-cad-mode" data-mode="dimension">↔ Dimension — Pick 2 Points, Drag to Place</button><h2>MAP LAYERS</h2><div class="flex"><button class="btn" id="aerial">Aerial</button><button class="btn" id="street">Street</button><button class="btn" id="topo">Topo</button></div>
 <div id="ttCustomMapsPanel" style="margin:9px 0;padding:10px;border:1px solid #345368;border-radius:8px;background:#0c161d">
  <div style="font-size:11px;font-weight:750;letter-spacing:1px;color:#56d9ef">☁ COMPANY CUSTOM MAP LAYERS</div>
  <p class="note">Upload an aerial/topo image or share a map service. Sync to Cloudflare for everyone in your company.</p>
@@ -1843,8 +1843,11 @@ function gisLibraryUI(){
  const previous=new Map([...personal.querySelectorAll('.gisLocalDataset')].map(x=>[x.dataset.name,x.checked]));
  if(!ttLocalGISLibrary.length){personal.innerHTML='<div class="note">No personal GIS datasets selected.</div>';return;}
  personal.innerHTML='<div style="color:#55daea;font-weight:700;margin:8px 0">PERSONAL GIS SOURCES · BUFFER READY</div>'+
- ttLocalGISLibrary.map((d,i)=>`<div style="display:flex;align-items:center;gap:7px;border-bottom:1px solid #28404d;padding:5px 0"><label style="flex:1;min-width:0;margin:0;overflow-wrap:anywhere"><input class="gisLocalDataset" type="checkbox" value="${i}" data-name="${esc(d.name)}" ${previous.get(d.name)===false?'':'checked'}> ${esc(d.name)} · ${d.geo.features.length.toLocaleString()} features</label><button class="btn ttLocalRemove" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Remove</button></div>`).join('');
+ ttLocalGISLibrary.map((d,i)=>`<div style="display:flex;align-items:center;gap:7px;border-bottom:1px solid #28404d;padding:5px 0"><label style="flex:1;min-width:0;margin:0;overflow-wrap:anywhere"><input class="gisLocalDataset" type="checkbox" value="${i}" data-name="${esc(d.name)}" ${previous.get(d.name)===false?'':'checked'}> ${esc(d.name)} · ${d.geo.features.length.toLocaleString()} features</label><button class="btn ttLocalZoom" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Zoom</button><button class="btn ttLocalRemove" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Remove</button></div>`).join('');
  for(const b of personal.querySelectorAll('.ttLocalRemove'))b.onclick=()=>{ttLocalGISLibrary.splice(Number(b.dataset.index),1);gisLibraryUI();status('Personal GIS source removed from this session')};
+ for(const cb of personal.querySelectorAll('.gisLocalDataset'))cb.onchange=()=>window.ttLocalGISPreview?.(cb.checked?{zoom:true,index:Number(cb.value)}:{});
+ for(const b of personal.querySelectorAll('.ttLocalZoom'))b.onclick=()=>{const i=Number(b.dataset.index);const cb=personal.querySelector('.gisLocalDataset[value="'+i+'"]');if(cb)cb.checked=true;window.ttLocalGISPreview?.({zoom:true,index:i});};
+ window.ttLocalGISPreview?.();
 }
 // Reuse the existing shpjs decoder and GIS corridor search without adding a cloud backend.
 window.ttImportPersonalGISFiles=async function(inputs){
@@ -1921,7 +1924,7 @@ async function extractGIS(){const btn=$('gisExtract');btn.disabled=true;try{
  const sharedDatasets=window.ttCompanyGIS?await window.ttCompanyGIS.searchBuffer(buffer):[];
  const datasets=Array.from(document.querySelectorAll('.gisDataset:checked')).map(x=>state.gisLibrary[Number(x.value)]).concat(Array.from(document.querySelectorAll('.gisLocalDataset:checked')).map(x=>ttLocalGISLibrary[Number(x.value)]),sharedDatasets).filter(Boolean);
  const localFGBReady=false;
- const pythonReady=window.terraTracePythonGIS?.enabled?.()||false;
+ const pythonReady=!!(window.terraTracePythonGIS?.enabled?.()&&document.querySelector('#pythonGISCategories input[type=checkbox]:checked'));
  const cloudReady=!pythonReady&&(window.terraTraceR2?.hasSelection?.()||false);
  if(cloudReady||pythonReady){selectedCats.clear()} // Cloud GIS and personally selected Shapefiles may be searched together.
  if(!selectedCats.size&&!datasets.length&&!cloudReady&&!pythonReady&&!localFGBReady)throw Error('Select at least one local GIS dataset or shared GIS category');
@@ -1932,10 +1935,11 @@ async function extractGIS(){const btn=$('gisExtract');btn.disabled=true;try{
  }
 
  for(const d of datasets){for(const f of d.geo.features){consider({...f,properties:{...(f.properties||{}),_category:d.category||d.name,_source:d.name}},d.category||d.name,d.name);if(results.length>=limit)break}}
- if(pythonReady)pythonMeta=await window.terraTracePythonGIS.query(shape,radius,(f,cat,origin)=>consider(f,cat,origin,true),status,limit);
- else if(cloudReady)await window.terraTraceR2.query(buffer,consider,status,limit);
+ let cloudWarning='';
+ if(pythonReady){try{pythonMeta=await window.terraTracePythonGIS.query(shape,radius,(f,cat,origin)=>consider(f,cat,origin,true),status,limit)}catch(err){if(!results.length)throw err;cloudWarning=err.message||String(err);}}
+ else if(cloudReady){try{await window.terraTraceR2.query(buffer,consider,status,limit)}catch(err){if(!results.length)throw err;cloudWarning=err.message||String(err);}}
  if(!results.length){const detail=pythonMeta?('Python returned '+(pythonMeta.matched??'?')+' matched features from '+(pythonMeta.datasets_checked??'?')+' inspected datasets ('+(pythonMeta.datasets_considered??'?')+' available, '+(pythonMeta.datasets_failed??0)+' failed).'+(pythonMeta.truncated?' Search was truncated.':'')+(pythonMeta.warnings?.length?'\nFirst warnings:\n'+pythonMeta.warnings.slice(0,5).join('\n'):'\nNo backend warnings reported.')):'No selected GIS features intersect the corridor. Try a larger radius or verify the Shapefile coordinates and selected datasets.';status('No GIS results — check search details in GIS Data Hub');alert('No GIS features displayed.\n'+detail);return}
- state.reference.push({type:'FeatureCollection',features:results,_terraGISSearch:true});render();persist();gisLoadedCategoryUI();setMode('select');status('GIS search complete: '+results.length.toLocaleString()+' matching features');alert('Found '+results.length.toLocaleString()+' GIS features.\n'+Object.entries(stats).map(([k,v])=>k+': '+v).join('\n')+(results.length>=limit?'\nReached 100,000-feature device safety limit; narrow the corridor.':''));
+ state.reference.push({type:'FeatureCollection',features:results,_terraGISSearch:true});render();persist();gisLoadedCategoryUI();setMode('select');status('GIS search complete: '+results.length.toLocaleString()+' matching features');alert('Found '+results.length.toLocaleString()+' GIS features.\n'+Object.entries(stats).map(([k,v])=>k+': '+v).join('\n')+(results.length>=limit?'\nReached 100,000-feature device safety limit; narrow the corridor.':'')+(cloudWarning?'\nSome shared GIS sources could not be searched: '+cloudWarning:''));
  }catch(e){alert('GIS search: '+e.message);console.error(e)}finally{btn.disabled=false}}
 function deleteGISFeature(i,f){if(!confirm('Delete GIS feature?'))return;remember();const obj=state.reference[i];if(obj.type==='FeatureCollection')obj.features.splice(obj.features.indexOf(f),1);else state.reference.splice(i,1);render();persist();gisLoadedCategoryUI()}
 window.gisFeatureInfo=(i,j)=>{const ref=state.reference[i],f=ref?.features?.[j]||ref;if(!f)return;const name=prompt('Feature name',f.properties?.name||f.properties?.Name||'GIS feature');if(name===null)return;remember();f.properties=f.properties||{};f.properties.name=name;render();persist()};
@@ -3971,7 +3975,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
     if(window.ttCompanyGIS)window.ttCompanyGIS.queue(inputs.filter(item=>!failed.has(item.name)),directFGB);
     const errors=[...warn,...result.errors];
-    message.textContent=(result.added?'Ready: '+result.added+' local layer(s), '+result.features.toLocaleString()+' features. Pick a route/area and click SEARCH CHECKED GIS IN BUFFER.':'No layers were loaded.')+(errors.length?'\nWarnings: '+errors.slice(0,6).join(' | '):'')+'\nYour original files stay unchanged. FlatGeobuf datasets are queued for company sharing; use Sync Changes or Share Pending GIS.';
+    if(result.added)window.ttLocalGISPreview?.({zoom:true,index:Math.max(0,(window.ttPersonalGISLibrary?.()||[]).length-1)});
+    message.textContent=(result.added?'Imported: '+result.added+' layer(s), '+result.features.toLocaleString()+' features. Checked layers preview on the map; use SEARCH CHECKED GIS IN BUFFER to load only the corridor.':'No layers were loaded.')+(errors.length?'\nWarnings: '+errors.slice(0,6).join(' | '):'')+'\nYour original files stay unchanged. FlatGeobuf datasets are queued for company sharing; use Sync Changes or Share Pending GIS.';
    }catch(err){message.textContent='GIS import error: '+(err?.message||String(err));}
   }
  }
@@ -3981,7 +3986,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script id="tt-company-gis-script">
 (function(){'use strict';
  const $=id=>document.getElementById(id), pending=[], MAX_BYTES=80*1048576;
- let companyList=[],busy=false,fgbLib;
+ let companyList=[],busy=false,fgbLib,sharedPreview=null,previewSeq=0,previewTimer=null;
+ const SHARED_PREVIEW_LIMIT=1200;
  const signed=()=>!!window.ttEnterpriseSessionToken?.();
  const role=()=>window.ttEnterpriseRole||'';
  const context=()=>{const id=window.ttEnterpriseCurrentProjectId?.();return id?'?project_id='+encodeURIComponent(id):''};
@@ -4024,12 +4030,44 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   }flush();if(!chunks.length)throw Error('No valid GIS features to index');
   return {chunks,meta};
  }
+ function validBounds(b){return Array.isArray(b)&&b.length===4&&b.every(Number.isFinite)&&b[0]>=-180&&b[2]<=180&&b[1]>=-90&&b[3]<=90;}
+ function bboxOverlapsClient(a,b){return a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];}
+ function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>{previewTimer=null;previewShared().catch(e=>status('Company map preview: '+e.message));},350);}
+ function ensurePreview(){const map=window.ttMapForCompanyLayers;if(!map)return null;if(!sharedPreview)sharedPreview=L.layerGroup().addTo(map);return sharedPreview;}
+ async function previewShared(){
+  const group=ensurePreview();if(!group)return;
+  const seq=++previewSeq, selected=[...document.querySelectorAll('.ttSharedGIS:checked')].map(x=>companyList.find(d=>d.id===x.dataset.id)).filter(d=>d?.indexed);
+  if(!selected.length){group.clearLayers();return;}
+  const map=window.ttMapForCompanyLayers,b=map.getBounds(),box=[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()];
+  const polygon={type:'Polygon',coordinates:[[[box[0],box[1]],[box[2],box[1]],[box[2],box[3]],[box[0],box[3]],[box[0],box[1]]]]};
+  let features=[],truncated=false;
+  for(const d of selected){
+   if(validBounds(d.bbox)&&!bboxOverlapsClient(d.bbox,box))continue;
+   let cursor=null,pages=0;
+   do{
+    const remaining=SHARED_PREVIEW_LIMIT-features.length;if(remaining<=0){truncated=true;break;}
+    const r=await request(url(d.id,'search'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({geometry:polygon,limit:Math.min(300,remaining),...(cursor?{cursor}:{})})});
+    const result=await r.json();if(seq!==previewSeq)return;
+    features.push(...(result.features||[]));cursor=result.next_cursor;
+    if(cursor&&++pages>=8){truncated=true;break;}
+   }while(cursor);
+   if(features.length>=SHARED_PREVIEW_LIMIT){truncated=true;break;}
+  }
+  if(seq!==previewSeq)return;
+  group.clearLayers();
+  if(features.length)L.geoJSON({type:'FeatureCollection',features},{
+   style:()=>({color:'#ffcc73',weight:1.5,fillColor:'#f6bd55',fillOpacity:0.13}),
+   pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4,color:'#ffcc73',fillOpacity:0.6}),
+   onEachFeature:(f,layer)=>{const root=document.createElement('div');for(const [k,v] of Object.entries(f.properties||{}).slice(0,16)){const row=document.createElement('div');const key=document.createElement('b');key.textContent=String(k)+': ';row.append(key,document.createTextNode(String(v??'').slice(0,200)));root.append(row);}layer.bindPopup(root,{maxWidth:320});}
+  }).addTo(group);
+  status('Company GIS: '+features.length.toLocaleString()+' parcel/feature(s) visible in this map view.'+(truncated?' Map preview capped; use corridor buffer search for the complete result.':''));
+ }
  function render(){const host=$('ttCompanyGISList');if(!host)return;const checked=new Map([...host.querySelectorAll('.ttSharedGIS')].map(x=>[x.dataset.id,x.checked]));host.replaceChildren();
   if(!companyList.length){host.textContent='No shared company GIS layers yet.';return;}
   for(const d of companyList){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;border-bottom:1px solid #30485b;padding:7px 0;';
    const lab=document.createElement('label');lab.style.cssText='flex:1;margin:0;min-width:0;font-size:11px;overflow-wrap:anywhere';
-   const cb=document.createElement('input');cb.className='ttSharedGIS';cb.dataset.id=d.id;cb.type='checkbox';cb.checked=checked.get(d.id)||false;cb.disabled=!d.indexed;
-   lab.append(cb,document.createTextNode(' '+d.name+' · '+(d.feature_count||'?')+' features'+(d.indexed?'':' · NEEDS INDEX')));row.append(lab);
+   const cb=document.createElement('input');cb.className='ttSharedGIS';cb.dataset.id=d.id;cb.type='checkbox';cb.checked=checked.get(d.id)||false;cb.disabled=!d.indexed;cb.onchange=()=>{const m=window.ttMapForCompanyLayers;if(cb.checked&&m&&validBounds(d.bbox)){const view=m.getBounds(),b=[view.getWest(),view.getSouth(),view.getEast(),view.getNorth()];if(!bboxOverlapsClient(d.bbox,b))m.fitBounds([[d.bbox[1],d.bbox[0]],[d.bbox[3],d.bbox[2]]],{padding:[26,26],maxZoom:14,animate:false});}schedulePreview();};
+   lab.append(cb,document.createTextNode(' '+d.name+' · '+(d.feature_count||'?')+' features'+(d.indexed?' · Map + Buffer':' · NEEDS INDEX')));row.append(lab);
    if(!d.indexed&&role()!=='viewer'){
     const index=document.createElement('button');index.type='button';index.className='btn';index.textContent='Index';index.style.cssText='width:auto;margin:0;padding:5px';
     index.title='One-time conversion/index of an earlier ZIP or unfinished FlatGeobuf';
@@ -4043,7 +4081,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   try{const all=[];let cursor=null,pages=0;do{const endpoint=url()+(cursor?(url().includes('?')?'&':'?')+'cursor='+encodeURIComponent(cursor):'');
     const r=await request(endpoint),result=await r.json();all.push(...result.datasets||[]);cursor=result.next_cursor;
     if(++pages>400)throw Error('GIS library has too many pages. Narrow the company library.');
-   }while(cursor);companyList=all.sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));render();status(companyList.length+' company GIS layer(s) available'+(pending.length?' · '+pending.length+' pending sync':''));}catch(e){status('Company GIS: '+e.message)}
+   }while(cursor);companyList=all.sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));render();schedulePreview();status(companyList.length+' company GIS layer(s) available'+(pending.length?' · '+pending.length+' pending sync':''));}catch(e){status('Company GIS: '+e.message)}
  }
  async function syncPending(){if(busy)throw Error('A GIS upload is already in progress');if(!pending.length)return {uploaded:0};if(!signed())throw Error('Sign in before syncing GIS');
   if(role()==='viewer')throw Error('Viewer role cannot upload GIS');if(role()==='super_admin'&&!window.ttEnterpriseCurrentProjectId?.())throw Error('Open a company project first');
@@ -4103,9 +4141,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
    if(features.length)datasets.push({name:d.name,category:/parcel|tract|landowner|ownership/i.test(d.name)?'Land Parcels':d.name,geo:{type:'FeatureCollection',features}});
   }return datasets;
  }
- function clear(){pending.length=0;companyList=[];render();status('Sign in to use company GIS');}
+ function clear(){pending.length=0;companyList=[];previewSeq++;if(sharedPreview)sharedPreview.clearLayers();render();status('Sign in to use company GIS');}
  function start(){$('ttCompanyGISShare')?.addEventListener('click',()=>syncPending().catch(e=>alert('Company GIS: '+e.message)));
   $('ttCompanyGISRefresh')?.addEventListener('click',refresh);
+  window.ttMapForCompanyLayers?.on('moveend',()=>{if(document.querySelector('.ttSharedGIS:checked'))schedulePreview();});
   window.addEventListener('tt-enterprise-login',refresh);window.addEventListener('tt-enterprise-project-open',refresh);window.addEventListener('tt-enterprise-logout',clear);
   if(signed())refresh();else clear();
  }
@@ -4221,6 +4260,59 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  }
  window.ttCompanyMaps={syncPending,refresh};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script>
+<script id="tt-personal-gis-map-preview">
+(function(){'use strict';
+ const MAX_VISIBLE=2200, MAX_SCAN=200000;
+ let overlay=null;
+ const $=id=>document.getElementById(id);
+ const fits=b=>Array.isArray(b)&&b.length===4&&b.every(Number.isFinite)&&b[0]>=-180&&b[2]<=180&&b[1]>=-90&&b[3]<=90&&b[0]<=b[2]&&b[1]<=b[3];
+ const intersects=(a,b)=>a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=b[1];
+ function labelFeature(f,layer){
+  const info=document.createElement('div');info.style.maxHeight='260px';info.style.overflow='auto';
+  const props=Object.entries(f.properties||{}).slice(0,18);
+  if(!props.length)info.textContent='Imported GIS feature';
+  for(const [k,v] of props){const p=document.createElement('div');p.style.marginBottom='3px';const b=document.createElement('b');b.textContent=String(k)+': ';p.append(b,document.createTextNode(String(v??'').slice(0,200)));info.append(p);}
+  layer.bindPopup(info,{maxWidth:330});
+ }
+ function preview({zoom=false,index=null}={}){
+  const map=window.ttMapForCompanyLayers, library=window.ttPersonalGISLibrary?.()||[],info=$('ttLocalGISPreviewStatus');
+  if(!map||!window.L||!window.turf)return;
+  if(!overlay)overlay=L.layerGroup().addTo(map);
+  overlay.clearLayers();
+  const selected=[...document.querySelectorAll('.gisLocalDataset:checked')].map(cb=>({i:Number(cb.value),d:library[Number(cb.value)]})).filter(x=>x.d);
+  if(!selected.length){if(info)info.textContent='Check a personal layer to show its parcels on the map.';return;}
+  const focus=selected.find(x=>x.i===index)||selected[0];
+  if(zoom&&index!==null)selected.sort((a,b)=>(a.i===index?-1:b.i===index?1:0));
+  if(zoom){
+   try{const features=focus.d.geo?.features||[];
+    const b=focus.d._ttPreviewBBox||(focus.d._ttPreviewBBox=turf.bbox(features.length>40000?{type:'FeatureCollection',features:features.slice(0,40000)}:focus.d.geo));
+    if(!fits(b))throw Error('Coordinates are not longitude/latitude. Include the matching .prj with your Shapefile.');
+    map.fitBounds([[b[1],b[0]],[b[3],b[2]]],{padding:[28,28],maxZoom:16,animate:false});
+   }catch(err){if(info)info.textContent='Preview positioning error for '+focus.d.name+': '+err.message;return;}
+  }
+  const view=map.getBounds(),bbox=[view.getWest(),view.getSouth(),view.getEast(),view.getNorth()];
+  const visible=[];let scanned=0,total=0,invalid=0,tooLarge=false;
+  for(const {d} of selected){const features=d.geo?.features||[];total+=features.length;
+   for(const f of features){if(scanned++>=MAX_SCAN){tooLarge=true;break;}
+    if(visible.length>=MAX_VISIBLE){tooLarge=true;break;}
+    if(!f?.geometry)continue;
+    try{const fb=Array.isArray(f.bbox)?f.bbox:turf.bbox(f);if(!fits(fb)){invalid++;continue;}if(intersects(fb,bbox))visible.push(f);}catch(e){invalid++;}
+   }
+   if(tooLarge)break;
+  }
+  if(visible.length){
+   L.geoJSON({type:'FeatureCollection',features:visible},{
+    style:()=>({color:'#36e7b9',weight:1.5,fillColor:'#25d4b1',fillOpacity:0.13}),
+    pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4,color:'#36e7b9',fillOpacity:0.5}),
+    onEachFeature:labelFeature
+   }).addTo(overlay);
+  }
+  if(info)info.textContent=visible.length.toLocaleString()+' personal GIS feature(s) visible in this map view.'+(tooLarge?' Preview limited for performance; corridor search still uses the complete imported dataset.':'')+(invalid?' '+invalid+' features had invalid coordinates; check the .prj file.':'')+(!visible.length?' Use Zoom on the dataset to locate its parcels.':'');
+ }
+ window.ttLocalGISPreview=preview;
+ const m=window.ttMapForCompanyLayers;if(m){let timer=null;m.on('moveend',()=>{clearTimeout(timer);timer=setTimeout(()=>preview(),320);});}
 })();
 </script>
 </body></html>

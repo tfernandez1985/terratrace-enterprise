@@ -3997,6 +3997,39 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   const r=await fetch(u,{...opts,headers:{Authorization:'Bearer '+window.ttEnterpriseSessionToken(),...(opts.headers||{})},cache:'no-store'});
   if(!r.ok){const j=await r.json().catch(()=>({}));throw Error(j.error||'Cloudflare returned HTTP '+r.status)}return r;}
  async function lib(){if(!fgbLib){fgbLib=await import('https://esm.sh/flatgeobuf@4.6.0/lib/mjs/geojson.js').catch(()=>import('https://cdn.jsdelivr.net/npm/flatgeobuf@4.6.0/lib/mjs/geojson.js'));}return fgbLib;}
+ // FlatGeobuf magic is 'fgb' + major version 3 + 'fgb' + patch byte.
+ // Check the actual uploaded bytes, not the filename or MIME type. Older
+ // TerraTrace pages sent source ZIPs to the now-FlatGeobuf-only endpoint.
+ const TT_FGB_PREFIX=[0x66,0x67,0x62,0x03,0x66,0x67,0x62];
+ function isFGBMagic(bytes){return !!bytes&&bytes.length>=8&&TT_FGB_PREFIX.every((value,i)=>bytes[i]===value);}
+ function formatMagic(bytes){return [...bytes.slice(0,8)].map(b=>b.toString(16).padStart(2,'0')).join(' ');}
+ function explainInvalidFGB(bytes){
+  if(bytes[0]===0x50&&bytes[1]===0x4b)return 'ZIP data was selected instead of FlatGeobuf. TerraTrace will convert the Shapefile before uploading.';
+  if(bytes[0]===0&&bytes[1]===0&&bytes[2]===0x27&&bytes[3]===0x0a)return 'A raw .shp file was selected; the complete Shapefile must first be converted.';
+  return 'Not a valid FlatGeobuf header (first bytes: '+formatMagic(bytes)+').';
+ }
+ async function verifiedFGBBlob(item){
+  if(item.file){
+   const header=new Uint8Array(await item.file.slice(0,8).arrayBuffer());
+   if(isFGBMagic(header))return item.file;
+   // Re-encode from the successfully parsed geometry, rather than uploading
+   // an invalid ZIP or raw Shapefile under an .fgb filename.
+   status(item.name+': '+explainInvalidFGB(header)+' Converting…');
+  }
+  if(!item.geo?.features?.length)throw Error(item.name+' has no decoded features to convert to FlatGeobuf.');
+  const serializer=(await lib()).serialize;
+  if(typeof serializer!=='function')throw Error('FlatGeobuf encoder did not load. Check network access and reload TerraTrace.');
+  const encoded=await serializer(item.geo,4326); // Also handles asynchronous implementations.
+  let bytes;
+  if(encoded instanceof Uint8Array)bytes=encoded;
+  else if(encoded instanceof ArrayBuffer)bytes=new Uint8Array(encoded);
+  else if(ArrayBuffer.isView(encoded))bytes=new Uint8Array(encoded.buffer,encoded.byteOffset,encoded.byteLength);
+  else throw Error('FlatGeobuf encoder returned '+Object.prototype.toString.call(encoded)+' rather than binary data. Upload cancelled.');
+  if(!isFGBMagic(bytes))throw Error('FlatGeobuf conversion failed: '+explainInvalidFGB(bytes)+ ' Upload cancelled before sending to Cloudflare.');
+  const blob=new Blob([bytes],{type:'application/octet-stream'});
+  if(blob.size<16)throw Error('Converted FlatGeobuf is incomplete. Upload cancelled.');
+  return blob;
+ }
  async function decodeFGB(file){const {deserialize}=await lib();const result=deserialize(new Uint8Array(await file.arrayBuffer()));
   if(result?.type==='FeatureCollection')return result;
   const features=[];for await(const f of result)features.push(f);return {type:'FeatureCollection',features};}
@@ -4089,7 +4122,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   try{while(pending.length){const item=pending[0];
     if(!item.index){status('Building spatial index for '+item.name+'…');item.index=makeIndex(item.geo);}
     if(!item.id){
-     let blob;if(item.file){blob=item.file;}else{const module=await lib(),binary=module.serialize(item.geo,4326);blob=new Blob([binary],{type:'application/octet-stream'});}
+     const blob=await verifiedFGBBlob(item);
      if(blob.size>MAX_BYTES)throw Error(item.name+' is over 80 MB. Split into smaller counties or use a bulk upload.');
      status('Sending FlatGeobuf '+item.name+' ('+(blob.size/1048576).toFixed(1)+' MB)…');
      const r=await request(url(),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Dataset-Name':encodeURIComponent(item.name)},body:blob});item.id=(await r.json()).dataset.id;
@@ -4118,7 +4151,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   if(!fc.features.length)throw Error('No GIS features in dataset');
   const index=makeIndex(fc);
   if(d.format==='TerraTrace Company Shapefile v1'){
-   const binary=(await lib()).serialize(fc,4326),blob=new Blob([binary],{type:'application/octet-stream'});
+   const blob=await verifiedFGBBlob({name:d.name,geo:fc});
    if(blob.size>MAX_BYTES)throw Error('Converted FGB exceeds 80MB; split county dataset for bulk processing');
    status('Converting old ZIP to FlatGeobuf '+d.name+'…');
    await request(url(d.id,'flatgeobuf'),{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:blob});
@@ -4148,7 +4181,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   window.addEventListener('tt-enterprise-login',refresh);window.addEventListener('tt-enterprise-project-open',refresh);window.addEventListener('tt-enterprise-logout',clear);
   if(signed())refresh();else clear();
  }
- window.ttCompanyGIS={queue,refresh,syncPending,searchBuffer,decodeFGB};
+ window.ttCompanyGIS={queue,refresh,syncPending,searchBuffer,decodeFGB,version:'fgb-upload-preflight-2026-11-21'};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>

@@ -174,7 +174,7 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 </div>
 <input id="ttShpUploadInput" type="file" accept=".zip,.fgb,.shp,.shx,.dbf,.prj,.cpg" multiple hidden>
 <input id="ttShpFolderInput" type="file" webkitdirectory directory multiple hidden>
-<div class="note" id="ttShpUploadStatus" role="status">Choose files or a land-parcels folder. Imported layers will preview on the map; Sync Changes publishes them to the company GIS library. Source files are unchanged.</div>
+<div class="note" id="ttShpUploadStatus" role="status">Choose files or a land-parcels folder. Imported layers stay hidden until checked. Sync Changes publishes them to the company GIS library. Source files are unchanged.</div>
  <div id="ttCompanyGISPanel" style="margin:12px 0;border:1px solid #365367;border-radius:8px;background:#0c151c;padding:9px">
   <div style="font-size:11px;font-weight:750;letter-spacing:1px;color:#56d9ef">☁ COMPANY GIS LIBRARY · CLOUDFLARE R2</div>
   <div class="note" style="margin:6px 0">Private to your company. Check a shared layer to preview parcels in the current map view and include it in buffer searches. Map previews are capped for device performance.</div>
@@ -1841,14 +1841,15 @@ function gisLibraryUI(){
  const personal=$('ttLocalGISList');
  if(!personal)return;
  const previous=new Map([...personal.querySelectorAll('.gisLocalDataset')].map(x=>[x.dataset.name,x.checked]));
- if(!ttLocalGISLibrary.length){personal.innerHTML='<div class="note">No personal GIS datasets selected.</div>';return;}
+ if(!ttLocalGISLibrary.length){personal.innerHTML='<div class="note">No personal GIS datasets selected.</div>';window.ttLocalGISPreview?.();return;}
  personal.innerHTML='<div style="color:#55daea;font-weight:700;margin:8px 0">PERSONAL GIS SOURCES · BUFFER READY</div>'+
- ttLocalGISLibrary.map((d,i)=>`<div style="display:flex;align-items:center;gap:7px;border-bottom:1px solid #28404d;padding:5px 0"><label style="flex:1;min-width:0;margin:0;overflow-wrap:anywhere"><input class="gisLocalDataset" type="checkbox" value="${i}" data-name="${esc(d.name)}" ${previous.get(d.name)===false?'':'checked'}> ${esc(d.name)} · ${d.geo.features.length.toLocaleString()} features</label><button class="btn ttLocalZoom" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Zoom</button><button class="btn ttLocalRemove" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Remove</button></div>`).join('');
+ ttLocalGISLibrary.map((d,i)=>`<div style="display:flex;align-items:center;gap:7px;border-bottom:1px solid #28404d;padding:5px 0"><label style="flex:1;min-width:0;margin:0;overflow-wrap:anywhere"><input class="gisLocalDataset" type="checkbox" value="${i}" data-name="${esc(d.name)}" ${window.ttCompanyGISHasDatasetName?.(d.name)?'disabled':(previous.get(d.name)===true?'checked':'')}> ${esc(d.name)} · ${d.geo.features.length.toLocaleString()} features${window.ttCompanyGISHasDatasetName?.(d.name)?' · Shared in Company GIS (use company checkbox)':''}</label><button class="btn ttLocalZoom" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Zoom</button><button class="btn ttLocalRemove" type="button" data-index="${i}" style="width:auto;padding:5px 7px;margin:0">Remove</button></div>`).join('');
  for(const b of personal.querySelectorAll('.ttLocalRemove'))b.onclick=()=>{ttLocalGISLibrary.splice(Number(b.dataset.index),1);gisLibraryUI();status('Personal GIS source removed from this session')};
  for(const cb of personal.querySelectorAll('.gisLocalDataset'))cb.onchange=()=>window.ttLocalGISPreview?.(cb.checked?{zoom:true,index:Number(cb.value)}:{});
  for(const b of personal.querySelectorAll('.ttLocalZoom'))b.onclick=()=>{const i=Number(b.dataset.index);const cb=personal.querySelector('.gisLocalDataset[value="'+i+'"]');if(cb)cb.checked=true;window.ttLocalGISPreview?.({zoom:true,index:i});};
  window.ttLocalGISPreview?.();
 }
+window.ttLocalGISControlsRefresh=gisLibraryUI;
 // Reuse the existing shpjs decoder and GIS corridor search without adding a cloud backend.
 window.ttImportPersonalGISFiles=async function(inputs){
  if(typeof shp==='undefined')throw Error('Shapefile decoder not available. Check your internet connection.');
@@ -3975,8 +3976,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
     if(window.ttCompanyGIS)window.ttCompanyGIS.queue(inputs.filter(item=>!failed.has(item.name)),directFGB);
     const errors=[...warn,...result.errors];
-    if(result.added)window.ttLocalGISPreview?.({zoom:true,index:Math.max(0,(window.ttPersonalGISLibrary?.()||[]).length-1)});
-    message.textContent=(result.added?'Imported: '+result.added+' layer(s), '+result.features.toLocaleString()+' features. Checked layers preview on the map; use SEARCH CHECKED GIS IN BUFFER to load only the corridor.':'No layers were loaded.')+(errors.length?'\nWarnings: '+errors.slice(0,6).join(' | '):'')+'\nYour original files stay unchanged. FlatGeobuf datasets are queued for company sharing; use Sync Changes or Share Pending GIS.';
+    // Do not auto-enable or auto-draw new imports. A checkbox controls visibility.
+    if(result.added)window.ttLocalGISPreview?.();
+    message.textContent=(result.added?'Imported: '+result.added+' layer(s), '+result.features.toLocaleString()+' features. Layers start hidden. Check a personal layer to preview it or Sync Changes and use the company layer checkbox. SEARCH CHECKED GIS IN BUFFER loads only the corridor.':'No layers were loaded.')+(errors.length?'\nWarnings: '+errors.slice(0,6).join(' | '):'')+'\nYour original files stay unchanged. FlatGeobuf datasets are queued for company sharing; use Sync Changes or Share Pending GIS.';
    }catch(err){message.textContent='GIS import error: '+(err?.message||String(err));}
   }
  }
@@ -3988,6 +3990,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  const $=id=>document.getElementById(id), pending=[], MAX_BYTES=80*1048576;
  let companyList=[],busy=false,fgbLib,sharedPreview=null,previewSeq=0,previewTimer=null;
  const SHARED_PREVIEW_LIMIT=1200;
+ window.ttCompanyGISHasDatasetName=name=>companyList.some(d=>d.indexed&&d.name===name);
  const signed=()=>!!window.ttEnterpriseSessionToken?.();
  const role=()=>window.ttEnterpriseRole||'';
  const context=()=>{const id=window.ttEnterpriseCurrentProjectId?.();return id?'?project_id='+encodeURIComponent(id):''};
@@ -4114,7 +4117,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   try{const all=[];let cursor=null,pages=0;do{const endpoint=url()+(cursor?(url().includes('?')?'&':'?')+'cursor='+encodeURIComponent(cursor):'');
     const r=await request(endpoint),result=await r.json();all.push(...result.datasets||[]);cursor=result.next_cursor;
     if(++pages>400)throw Error('GIS library has too many pages. Narrow the company library.');
-   }while(cursor);companyList=all.sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));render();schedulePreview();status(companyList.length+' company GIS layer(s) available'+(pending.length?' · '+pending.length+' pending sync':''));}catch(e){status('Company GIS: '+e.message)}
+   }while(cursor);companyList=all.sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));render();window.ttLocalGISControlsRefresh?.();schedulePreview();status(companyList.length+' company GIS layer(s) available'+(pending.length?' · '+pending.length+' pending sync':''));}catch(e){status('Company GIS: '+e.message)}
  }
  async function syncPending(){if(busy)throw Error('A GIS upload is already in progress');if(!pending.length)return {uploaded:0};if(!signed())throw Error('Sign in before syncing GIS');
   if(role()==='viewer')throw Error('Viewer role cannot upload GIS');if(role()==='super_admin'&&!window.ttEnterpriseCurrentProjectId?.())throw Error('Open a company project first');
@@ -4134,6 +4137,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     }
     await request(url(item.id,'index'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({chunks:item.index.meta})});
     pending.shift();uploaded++;
+    // Once stored and indexed by the company, retire the session's temporary
+    // personal preview. The company layer checkbox is now the sole controller.
+    const personal=window.ttPersonalGISLibrary?.();
+    if(personal){const at=personal.findIndex(d=>d.name===item.name);if(at>=0){personal.splice(at,1);window.ttLocalGISControlsRefresh?.();}}
    }
    await refresh();status(uploaded+' dataset(s) shared and indexed. Coworkers can now run server-side buffer searches.');return {uploaded};
   }catch(e){status('Company GIS sync stopped: '+e.message+'. Pending data remains in this tab.');throw e}
@@ -4174,7 +4181,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
    if(features.length)datasets.push({name:d.name,category:/parcel|tract|landowner|ownership/i.test(d.name)?'Land Parcels':d.name,geo:{type:'FeatureCollection',features}});
   }return datasets;
  }
- function clear(){pending.length=0;companyList=[];previewSeq++;if(sharedPreview)sharedPreview.clearLayers();render();status('Sign in to use company GIS');}
+ function clear(){pending.length=0;companyList=[];previewSeq++;if(sharedPreview)sharedPreview.clearLayers();render();window.ttLocalGISControlsRefresh?.();status('Sign in to use company GIS');}
  function start(){$('ttCompanyGISShare')?.addEventListener('click',()=>syncPending().catch(e=>alert('Company GIS: '+e.message)));
   $('ttCompanyGISRefresh')?.addEventListener('click',refresh);
   window.ttMapForCompanyLayers?.on('moveend',()=>{if(document.querySelector('.ttSharedGIS:checked'))schedulePreview();});
@@ -4314,7 +4321,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   if(!map||!window.L||!window.turf)return;
   if(!overlay)overlay=L.layerGroup().addTo(map);
   overlay.clearLayers();
-  const selected=[...document.querySelectorAll('.gisLocalDataset:checked')].map(cb=>({i:Number(cb.value),d:library[Number(cb.value)]})).filter(x=>x.d);
+  const selected=[...document.querySelectorAll('.gisLocalDataset:checked')].map(cb=>({i:Number(cb.value),d:library[Number(cb.value)]})).filter(x=>x.d&&!window.ttCompanyGISHasDatasetName?.(x.d.name));
   if(!selected.length){if(info)info.textContent='Check a personal layer to show its parcels on the map.';return;}
   const focus=selected.find(x=>x.i===index)||selected[0];
   if(zoom&&index!==null)selected.sort((a,b)=>(a.i===index?-1:b.i===index?1:0));
@@ -4337,8 +4344,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   }
   if(visible.length){
    L.geoJSON({type:'FeatureCollection',features:visible},{
-    style:()=>({color:'#36e7b9',weight:1.5,fillColor:'#25d4b1',fillOpacity:0.13}),
-    pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4,color:'#36e7b9',fillOpacity:0.5}),
+    style:()=>({color:'#ffcc73',weight:1.5,fillColor:'#f6bd55',fillOpacity:0.13}),
+    pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:4,color:'#ffcc73',fillOpacity:0.5}),
     onEachFeature:labelFeature
    }).addTo(overlay);
   }

@@ -1793,6 +1793,9 @@ function exportSelectedKMZCL(){
  }catch(e){alert('KMZ CL export: '+e.message)}
 }
 
+// Initialize the personal GIS library before init() calls setupGISUI().
+// This prevents a temporal-dead-zone error when opening TerraTrace projects.
+const ttLocalGISLibrary=[];
 init()
 // Region ZIPs are stored separately from project snapshots. Only selected ZIP layers are decompressed at search time.
 const GIS_PACKAGE_DB='TerraTrace_Regional_Packages_v1';let gisPkgDBPromise;
@@ -1809,7 +1812,6 @@ function gisBoundsOverlap(a,b){return a[0]<=b[2]&&a[2]>=b[0]&&a[1]<=b[3]&&a[3]>=
 function gisFeatureBounds(g){return turf.bbox(g)}
 function asFeatures(g){if(!g)return[];if(g.type==='FeatureCollection')return g.features||[];if(g.type==='Feature')return[g];return[{type:'Feature',properties:{},geometry:g}]}
 // Personal GIS files belong to this browser session, never to the shared cloud project.
-const ttLocalGISLibrary=[];
 function gisLibraryUI(){
  const box=$('gisDatasetList');
  if(box)box.innerHTML=(state.gisLibrary||[]).map((d,i)=>`<label><input type="checkbox" class="gisDataset" value="${i}" checked> ${esc(d.name)} (${d.geo.features.length.toLocaleString()} features)</label>`).join('')||'No GIS datasets loaded yet.';

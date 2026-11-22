@@ -167,15 +167,39 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 </section><h2>PROJECT MANAGER</h2><label>Current project</label><select id="projectSelect"></select><div class="flex"><button class="btn" id="newProject">＋ New Project</button><button class="btn" id="openLocalProject">Open Project</button></div><div class="flex"><button class="btn" id="renameProject">Rename</button><button class="btn" id="deleteProject">Delete Project</button></div><button class="btn primary" id="saveLocalProject">Save Local Copy</button><div class="note">Each project has its own geometry, photo pins, reference layers and coordinate system. Local projects must be exported to Files. Cloud projects open directly into memory and sync through Cloudflare. Use Backup ZIP to save a durable copy in On My iPad through Files. Safari website data is separate from Files storage.</div><h2>CLOUD PROJECTS — MANAGEMENT</h2><label>All cloud projects</label><select id="cloudProjectSelect"><option value="">Connect to load cloud projects</option></select><div class="flex"><button class="btn" id="cloudRefresh">↻ Refresh Projects</button><button class="btn primary" id="cloudOpen">Open Cloud Project</button></div><label style="display:none">Cloud API URL (Workers endpoint)</label><input style="display:none" id="cloudApi" value="" placeholder="https://terratrace-cloud-api.YOU.workers.dev"><label style="display:none">Project ID</label><input style="display:none" id="cloudProjectId" value="TEST" placeholder="TEST"><label style="display:none">Project access token</label><input style="display:none" id="cloudToken" type="password" placeholder="Admin or viewer token"><div class="flex" style="display:none"><button class="btn" id="cloudConnect">Connect / Sync</button><button class="btn" id="cloudDisconnect">Disconnect</button></div><div class="flex"><button class="btn primary" id="cloudPublish">Publish Local to Cloud</button><button class="btn" id="cloudDownload">Download Project</button></div><div class="note" id="cloudStatus">Cloud disconnected. Cloud sync requires a deployed Worker. Cloud settings are built into this HTML file. Use only on trusted devices.</div><h2>PROJECT / COORDINATES</h2><label>Project coordinate system (EPSG)</label><select id="epsg"><option value="">Choose coordinate system</option><option value="2275">EPSG:2275 — Texas North — NAD83 (US ft)</option><option value="2276">EPSG:2276 — Texas North Central — NAD83 (US ft)</option><option value="2277">EPSG:2277 — Texas Central — NAD83 (US ft)</option><option value="2278">EPSG:2278 — Texas South Central — NAD83 (US ft)</option><option value="2279">EPSG:2279 — Texas South — NAD83 (US ft)</option></select><label style="display:none">Custom PROJ4 (advanced)</label><input style="display:none" id="proj" placeholder="Paste PROJ4 definition for your State Plane zone"><div class="note">Choose the EPSG zone above, or supply a custom PROJ4 definition. Verify datum, zone and units against the survey control before importing.</div><div class="flex"><button class="btn" id="saveCrs">Apply CRS</button><button class="btn" id="gps">▶ Start Live GPS</button></div><label><input type="checkbox" id="gpsFollow" checked> Follow GPS position</label><div class="note" id="gpsStatus">GPS off · Requires location permission and HTTPS (or localhost).</div><button class="btn" id="gpsCenter">◎ Center on GPS</button><h2>IPAD STORAGE / BACKUPS</h2><div class="note">Projects stay in memory until you export them to the Files app. No browser project storage is used. For a durable copy outside Safari, export a ZIP and save it in the Files app.</div><button class="btn primary" id="ipadBackup">Backup ZIP to iPad Files</button><button class="btn" id="ipadRestore">Restore ZIP backup</button><div class="note" id="storageInfo">No Google Drive connection or sync. Save a ZIP or JSON to Files before closing TerraTrace; unsaved edits will be lost.</div><h2>DATA / IMPORT</h2>
 <button class="btn primary" id="ttUploadShapefile" type="button" aria-expanded="false" aria-controls="ttShpChooser">＋ Browse My SHP Files / Folder (PC / iPad)</button>
 <div id="ttShpChooser" hidden style="padding:9px;margin:8px 0;background:#0d181c;border:1px solid #34525b;border-radius:9px">
-  <div class="note" style="margin-bottom:7px">Use your own parcel boundaries or other GIS Shapefiles. Files are read on this device; no Cloudflare upload.</div>
+  <div class="note" style="margin-bottom:7px">Use your own parcel boundaries or Shapefiles. After import, press Sync Changes or Share Pending GIS to upload the ZIPs into your company's private Cloudflare R2 folder.</div>
   <button class="btn primary" id="ttChooseShpFiles" type="button">Browse SHP Files / ZIP</button>
   <button class="btn" id="ttChooseShpFolder" type="button">Browse a GIS Folder</button>
   <div class="note" style="margin:5px 0">Folder selection supports multiple Shapefiles and nested county folders on compatible browsers. On iPad, use the Files app to select the ZIP(s) or Shapefile parts if folder selection is unavailable.</div>
 </div>
-<input id="ttShpUploadInput" type="file" accept=".zip,.shp,.shx,.dbf,.prj,.cpg" multiple hidden>
+<input id="ttShpUploadInput" type="file" accept=".zip,.fgb,.shp,.shx,.dbf,.prj,.cpg" multiple hidden>
 <input id="ttShpFolderInput" type="file" webkitdirectory directory multiple hidden>
-<div class="note" id="ttShpUploadStatus" role="status">Choose files or a land-parcels folder, then pick a line or area and run the existing GIS buffer search. Source features stay off the map until searched.</div>
-<div id="ttLocalGISList" style="margin:8px 0;font-size:11px"></div><button class="btn" id="loadCL" style="display:none">Import ordered CL CSV</button><button class="btn" id="loadProject">Open saved project JSON</button><button class="btn" id="saveProject">Save project JSON</button><label>Public or signed GeoJSON URL (optional)</label><input id="geoUrl" placeholder="https://.../project.geojson"><button class="btn" id="fetchGeo">Load URL layer</button><div class="note">Import local GIS files using the iPad Files picker, or a CORS-enabled GeoJSON URL. Large SHP/GDB/GPKG may need a server-side tile service.</div><h2>GIS DATA HUB / CORRIDOR</h2><div id="pythonGISPanel" style="background:#0a111b;border:1px solid #365367;border-radius:8px;padding:10px;margin:6px 0 14px"><div style="color:#46dbef;font-weight:750;letter-spacing:1px">☁ SHARED GIS DATA HUB · INDEXED FLATGEOBUF</div><div class="note" style="margin:5px 0">Search indexed FlatGeobuf files in Cloudflare R2 by GIS category and your selected corridor. No manual file selection or local GIS database required.</div><label style="display:none">GIS URL (server-managed)</label><input style="display:none" id="pythonGISURL" value="" spellcheck="false" autocomplete="off"><label style="display:none">GIS token (server-managed)</label><input style="display:none" id="pythonGISToken" type="password" placeholder="Enter the GIS Worker viewer/admin token" autocomplete="off" spellcheck="false"><div class="note">GIS is shared read-only across signed-in companies. The GIS source token stays inside your Enterprise Cloudflare Worker.</div><div class="flex"><button class="btn primary" id="pythonGISConnect" type="button">↻ LOAD SHARED GIS CATEGORIES</button></div><div class="note" id="pythonGISStatus">Connect GIS to load the available R2 FlatGeobuf categories.</div><div class="note" id="pythonGISSearchDetail" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px;border-top:1px solid #284254;padding-top:8px"></div><div id="pythonGISCategories"></div><label><input id="pythonGISEnabled" type="checkbox" checked> Search Cloudflare FlatGeobuf GIS</label><div class="note">Select categories, then tap one KMZ/CAD alignment or one area center. Search uses the entire selected line or circular area at your radius.</div></div><button class="btn primary" id="gisLibrary" style="display:none">＋ Load GIS files from iPad</button><label>Buffer radius (feet, on all sides)</label><input type="number" id="gisRadius" value="1000" min="1" step="any"><button class="btn mode" data-mode="gisPickLine">⌁ Pick Line → Buffer</button><button class="btn mode" data-mode="gisPickArea">▧ Pick Area → Buffer</button><div class="note">Pick Line: tap any part of a project KMZ / CAD line to select its entire alignment. Pick Area: tap one location to search a circular area using the buffer radius. Select categories and search.</div><div style="display:none" id="gisCategoryList" class="note"></div><div style="display:none" id="gisDatasetList" class="note">No additional source files loaded.</div><button class="btn primary" id="gisExtract">SEARCH CHECKED GIS IN BUFFER</button><div id="gisLoadedCategories" style="margin:10px 0;padding:10px;background:#0c151b;border:1px solid #365367;border-radius:8px"><div style="color:#56d9ef;font-weight:750;letter-spacing:1px">LOADED GIS LAYERS</div><div class="note">Show, hide, or remove GIS results by category. This affects this project only, not your Cloudflare R2 source files.</div><div id="gisLoadedCategoryRows" class="note" style="margin-top:8px">No GIS search results loaded.</div></div><button class="btn" style="display:none" id="gisClearLibrary">Clear loaded GIS library</button><button class="btn" style="display:none" id="gisClearPackages">Remove registered regional ZIPs</button><h2>KMZ CENTERLINE / PI EXPORT</h2><button class="btn primary mode" data-mode="exportKmzCL">⌁ PICK KMZ-KML LINE</button><button class="btn" id="exportSelectedKmzCL">Export Selected KMZ CL CSV</button><button class="btn primary" id="exportCADPointsCSV">⌖ EXPORT CAD POINTS / VERTICES CSV</button><div class="note">Choose CAD Points to export all standalone CAD points, or Vertices and tap a CAD / CL / imported KMZ line to export every vertex on that line.</div><button class="btn primary" id="kmzBendSummary">⌁ BENDS — Calculate Bend Counts</button><div class="note">Select a KMZ centerline first. Counts bends by rounded-up angle: 0–30°, 31–45°, and 46–90°.</div><label>Starting station (feet)</label><input id="kmzCLStart" type="number" value="0" step="0.01"><div class="note" id="kmzCLInfo">Tap Export CL, then tap near the end you want as BEGIN. PI markers appear on the selected line only. Export includes coordinates, station, bearings, and bend angles.</div><h2>HDD / BORE DESIGN</h2><button class="btn primary" id="openHddCalculator" type="button">⌁ CALC HDD'S — Open HDD Calculator</button><div class="note">Opens the full HDD creek / ROW calculator without leaving your TerraTrace map.</div><h2>CAD</h2><label><input type="checkbox" id="showVertices"> Show Vertices (CL / CAD / KMZ)</label><button class="btn mode tt-cad-mode" data-mode="select">↖ Select / Drag CAD + KMZ Vertices</button><button class="btn mode tt-cad-mode" data-mode="delete">⌫ Delete Point / Line / Pin / Vertex</button><button class="btn mode tt-cad-mode" data-mode="addVertex">⊕ CALC: Insert Vertex on CL</button><button class="btn mode tt-cad-mode" data-mode="editLine">✎ Edit Polyline / Insert Vertex</button><button class="btn mode tt-cad-mode" data-mode="point">⊙ Drop CAD Point</button><button class="btn" id="keyinPoint">⌖ Key In Northing / Easting</button><button class="btn mode tt-cad-mode" data-mode="circle">◯ Draw Circle (center + radius)</button><button class="btn mode tt-cad-mode" data-mode="copyObject">⧉ Copy Whole Object</button><button class="btn mode tt-cad-mode" data-mode="moveObject">✥ Move Whole Object — Hold Vertex & Drag</button><button class="btn mode tt-cad-mode" data-mode="mirrorObject">⇋ Mirror Whole Object</button><label><input type="checkbox" id="snapEnabled" checked> Snap dragged vertices to nearest line / vertex</label><label>Snap tolerance (screen pixels)</label><input type="number" id="snapTolerance" value="16" min="2" max="60"><button class="btn mode tt-cad-mode" data-mode="photo">▣ Drop Photo Pin</button><button class="btn mode tt-cad-mode" data-mode="draw">⌁ Draw Polyline (Live Preview)</button><button class="btn mode tt-cad-mode" data-mode="offset">⇆ Offset Segment (CAD / KMZ)</button><label>Offset distance (project units)</label><input id="offsetDistance" type="number" min="0" step="any" value="25"><button class="btn mode tt-cad-mode" data-mode="trim">✂ Trim Line</button><button class="btn mode tt-cad-mode" data-mode="intersectLines">⌁ Intersect Lines — Auto Trim</button><button class="btn" id="finishIntersectLines">Finish Intersect Lines</button><button class="btn" id="finishLine">Finish Polyline</button><button class="btn mode tt-cad-mode" data-mode="inverse">↔ Inverse (Snap to PI / Vertex)</button><button class="btn" id="undo">↶ Undo last edit</button><button class="btn" id="resetCL">Restore original imported CL</button><h2>STATIONING</h2><label><input type="checkbox" id="showStationing" checked> Show Stationing</label><button class="btn mode tt-cad-mode" data-mode="stationPick">⌁ Pick CL for Stationing</button><label>Starting station</label><input id="stationingStart" value="0+00" placeholder="0+00"><div class="note" id="stationingInfo">Pick a centerline, then Set Stationing. Labels appear every 200 ft and at each PI. Station equations are applied.</div><div class="flex"><button class="btn primary" id="setStationing">Set Stationing</button><button class="btn" id="redoStationing">Redo Stationing</button></div><button class="btn" id="addEquation">＋ Add Station Equation</button><button class="btn" id="manageEquations">Manage Station Equations</button><div class="note">Enter BACK and AHEAD stations (e.g. 12+50 and 15+00). No map selection required. The BACK station locates the equation along the edited centerline; AHEAD sets downstream stationing.</div><h2>ANNOTATIONS</h2><button class="btn mode tt-cad-mode" data-mode="annotation">➤ Arrow Annotation / Text</button><button class="btn mode tt-cad-mode" data-mode="dimension">↔ Dimension — Pick 2 Points, Drag to Place</button><h2>MAP LAYERS</h2><div class="flex"><button class="btn" id="aerial">Aerial</button><button class="btn" id="street">Street</button><button class="btn" id="topo">Topo</button></div><label><input type="checkbox" id="showOriginal" checked> Original IFC CL (dashed)</label><label><input type="checkbox" id="showCad" checked> CAD / edited centerline</label><label><input type="checkbox" id="showRef" checked> Reference GIS</label><label><input type="checkbox" id="showAnnotations" checked> Arrow annotations</label><h2>EXPORT</h2><button class="btn primary" id="kmz">Export KMZ + imported GIS + photos</button><button class="btn primary" id="dxf">Export DXF (project CRS)</button><button class="btn primary" id="photoReport">▣ Export Photo Report — Pick CL First</button><p class="note">Projects are not automatically saved. Export ZIP backups to On My iPad for durable copies.</p></aside><div class="foot"><div class="chip" id="modeText">SELECT</div><div class="chip" id="measure">CL: —</div><div class="spacer"></div><button class="btn" id="closeMenu">Hide menu</button></div><div class="modalbg" id="modalbg"><div class="modal"><h3 id="modalTitle">Pin</h3><div id="modalBody"></div><div class="flex" style="margin-top:12px"><button class="btn" id="modalCancel">Close</button><button class="btn primary" id="modalOK">Save</button></div></div></div><input type="file" id="fileGISLibrary" multiple accept=".kml,.kmz,.geojson,.json,.zip" multiple hidden><input type="file" id="fileCL" accept=".csv,text/csv" hidden><input type="file" id="fileGIS" accept=".geojson,.json,.kml,.kmz,application/vnd.google-earth.kmz" hidden><input type="file" id="fileProject" accept=".json" hidden><input type="file" id="fileBackup" accept=".zip" hidden><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script><script src="https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
+<div class="note" id="ttShpUploadStatus" role="status">Choose files or a land-parcels folder. These files are queued for sharing when you sync; your source files remain unchanged.</div>
+ <div id="ttCompanyGISPanel" style="margin:12px 0;border:1px solid #365367;border-radius:8px;background:#0c151c;padding:9px">
+  <div style="font-size:11px;font-weight:750;letter-spacing:1px;color:#56d9ef">☁ COMPANY GIS LIBRARY · CLOUDFLARE R2</div>
+  <div class="note" style="margin:6px 0">Private to your company. Choose shared layers here to include them in your GIS corridor buffer searches.</div>
+  <div class="flex"><button id="ttCompanyGISShare" class="btn primary" type="button">↑ Share Pending GIS</button><button id="ttCompanyGISRefresh" class="btn" type="button">↻ Refresh Library</button></div>
+  <div id="ttCompanyGISStatus" class="note" role="status" style="margin:7px 0">Sign in to see your company GIS datasets.</div>
+  <div id="ttCompanyGISList"></div>
+ </div>
+<div id="ttLocalGISList" style="margin:8px 0;font-size:11px"></div><button class="btn" id="loadCL" style="display:none">Import ordered CL CSV</button><button class="btn" id="loadProject">Open saved project JSON</button><button class="btn" id="saveProject">Save project JSON</button><label>Public or signed GeoJSON URL (optional)</label><input id="geoUrl" placeholder="https://.../project.geojson"><button class="btn" id="fetchGeo">Load URL layer</button><div class="note">Import local GIS files using the iPad Files picker, or a CORS-enabled GeoJSON URL. Large SHP/GDB/GPKG may need a server-side tile service.</div><h2>GIS DATA HUB / CORRIDOR</h2><div id="pythonGISPanel" style="background:#0a111b;border:1px solid #365367;border-radius:8px;padding:10px;margin:6px 0 14px"><div style="color:#46dbef;font-weight:750;letter-spacing:1px">☁ SHARED GIS DATA HUB · INDEXED FLATGEOBUF</div><div class="note" style="margin:5px 0">Search indexed FlatGeobuf files in Cloudflare R2 by GIS category and your selected corridor. No manual file selection or local GIS database required.</div><label style="display:none">GIS URL (server-managed)</label><input style="display:none" id="pythonGISURL" value="" spellcheck="false" autocomplete="off"><label style="display:none">GIS token (server-managed)</label><input style="display:none" id="pythonGISToken" type="password" placeholder="Enter the GIS Worker viewer/admin token" autocomplete="off" spellcheck="false"><div class="note">GIS is shared read-only across signed-in companies. The GIS source token stays inside your Enterprise Cloudflare Worker.</div><div class="flex"><button class="btn primary" id="pythonGISConnect" type="button">↻ LOAD SHARED GIS CATEGORIES</button></div><div class="note" id="pythonGISStatus">Connect GIS to load the available R2 FlatGeobuf categories.</div><div class="note" id="pythonGISSearchDetail" style="display:none;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px;border-top:1px solid #284254;padding-top:8px"></div><div id="pythonGISCategories"></div><label><input id="pythonGISEnabled" type="checkbox" checked> Search Cloudflare FlatGeobuf GIS</label><div class="note">Select categories, then tap one KMZ/CAD alignment or one area center. Search uses the entire selected line or circular area at your radius.</div></div><button class="btn primary" id="gisLibrary" style="display:none">＋ Load GIS files from iPad</button><label>Buffer radius (feet, on all sides)</label><input type="number" id="gisRadius" value="1000" min="1" step="any"><button class="btn mode" data-mode="gisPickLine">⌁ Pick Line → Buffer</button><button class="btn mode" data-mode="gisPickArea">▧ Pick Area → Buffer</button><div class="note">Pick Line: tap any part of a project KMZ / CAD line to select its entire alignment. Pick Area: tap one location to search a circular area using the buffer radius. Select categories and search.</div><div style="display:none" id="gisCategoryList" class="note"></div><div style="display:none" id="gisDatasetList" class="note">No additional source files loaded.</div><button class="btn primary" id="gisExtract">SEARCH CHECKED GIS IN BUFFER</button><div id="gisLoadedCategories" style="margin:10px 0;padding:10px;background:#0c151b;border:1px solid #365367;border-radius:8px"><div style="color:#56d9ef;font-weight:750;letter-spacing:1px">LOADED GIS LAYERS</div><div class="note">Show, hide, or remove GIS results by category. This affects this project only, not your Cloudflare R2 source files.</div><div id="gisLoadedCategoryRows" class="note" style="margin-top:8px">No GIS search results loaded.</div></div><button class="btn" style="display:none" id="gisClearLibrary">Clear loaded GIS library</button><button class="btn" style="display:none" id="gisClearPackages">Remove registered regional ZIPs</button><h2>KMZ CENTERLINE / PI EXPORT</h2><button class="btn primary mode" data-mode="exportKmzCL">⌁ PICK KMZ-KML LINE</button><button class="btn" id="exportSelectedKmzCL">Export Selected KMZ CL CSV</button><button class="btn primary" id="exportCADPointsCSV">⌖ EXPORT CAD POINTS / VERTICES CSV</button><div class="note">Choose CAD Points to export all standalone CAD points, or Vertices and tap a CAD / CL / imported KMZ line to export every vertex on that line.</div><button class="btn primary" id="kmzBendSummary">⌁ BENDS — Calculate Bend Counts</button><div class="note">Select a KMZ centerline first. Counts bends by rounded-up angle: 0–30°, 31–45°, and 46–90°.</div><label>Starting station (feet)</label><input id="kmzCLStart" type="number" value="0" step="0.01"><div class="note" id="kmzCLInfo">Tap Export CL, then tap near the end you want as BEGIN. PI markers appear on the selected line only. Export includes coordinates, station, bearings, and bend angles.</div><h2>HDD / BORE DESIGN</h2><button class="btn primary" id="openHddCalculator" type="button">⌁ CALC HDD'S — Open HDD Calculator</button><div class="note">Opens the full HDD creek / ROW calculator without leaving your TerraTrace map.</div><h2>CAD</h2><label><input type="checkbox" id="showVertices"> Show Vertices (CL / CAD / KMZ)</label><button class="btn mode tt-cad-mode" data-mode="select">↖ Select / Drag CAD + KMZ Vertices</button><button class="btn mode tt-cad-mode" data-mode="delete">⌫ Delete Point / Line / Pin / Vertex</button><button class="btn mode tt-cad-mode" data-mode="addVertex">⊕ CALC: Insert Vertex on CL</button><button class="btn mode tt-cad-mode" data-mode="editLine">✎ Edit Polyline / Insert Vertex</button><button class="btn mode tt-cad-mode" data-mode="point">⊙ Drop CAD Point</button><button class="btn" id="keyinPoint">⌖ Key In Northing / Easting</button><button class="btn mode tt-cad-mode" data-mode="circle">◯ Draw Circle (center + radius)</button><button class="btn mode tt-cad-mode" data-mode="copyObject">⧉ Copy Whole Object</button><button class="btn mode tt-cad-mode" data-mode="moveObject">✥ Move Whole Object — Hold Vertex & Drag</button><button class="btn mode tt-cad-mode" data-mode="mirrorObject">⇋ Mirror Whole Object</button><label><input type="checkbox" id="snapEnabled" checked> Snap dragged vertices to nearest line / vertex</label><label>Snap tolerance (screen pixels)</label><input type="number" id="snapTolerance" value="16" min="2" max="60"><button class="btn mode tt-cad-mode" data-mode="photo">▣ Drop Photo Pin</button><button class="btn mode tt-cad-mode" data-mode="draw">⌁ Draw Polyline (Live Preview)</button><button class="btn mode tt-cad-mode" data-mode="offset">⇆ Offset Segment (CAD / KMZ)</button><label>Offset distance (project units)</label><input id="offsetDistance" type="number" min="0" step="any" value="25"><button class="btn mode tt-cad-mode" data-mode="trim">✂ Trim Line</button><button class="btn mode tt-cad-mode" data-mode="intersectLines">⌁ Intersect Lines — Auto Trim</button><button class="btn" id="finishIntersectLines">Finish Intersect Lines</button><button class="btn" id="finishLine">Finish Polyline</button><button class="btn mode tt-cad-mode" data-mode="inverse">↔ Inverse (Snap to PI / Vertex)</button><button class="btn" id="undo">↶ Undo last edit</button><button class="btn" id="resetCL">Restore original imported CL</button><h2>STATIONING</h2><label><input type="checkbox" id="showStationing" checked> Show Stationing</label><button class="btn mode tt-cad-mode" data-mode="stationPick">⌁ Pick CL for Stationing</button><label>Starting station</label><input id="stationingStart" value="0+00" placeholder="0+00"><div class="note" id="stationingInfo">Pick a centerline, then Set Stationing. Labels appear every 200 ft and at each PI. Station equations are applied.</div><div class="flex"><button class="btn primary" id="setStationing">Set Stationing</button><button class="btn" id="redoStationing">Redo Stationing</button></div><button class="btn" id="addEquation">＋ Add Station Equation</button><button class="btn" id="manageEquations">Manage Station Equations</button><div class="note">Enter BACK and AHEAD stations (e.g. 12+50 and 15+00). No map selection required. The BACK station locates the equation along the edited centerline; AHEAD sets downstream stationing.</div><h2>ANNOTATIONS</h2><button class="btn mode tt-cad-mode" data-mode="annotation">➤ Arrow Annotation / Text</button><button class="btn mode tt-cad-mode" data-mode="dimension">↔ Dimension — Pick 2 Points, Drag to Place</button><h2>MAP LAYERS</h2><div class="flex"><button class="btn" id="aerial">Aerial</button><button class="btn" id="street">Street</button><button class="btn" id="topo">Topo</button></div>
+<div id="ttCustomMapsPanel" style="margin:9px 0;padding:10px;border:1px solid #345368;border-radius:8px;background:#0c161d">
+ <div style="font-size:11px;font-weight:750;letter-spacing:1px;color:#56d9ef">☁ COMPANY CUSTOM MAP LAYERS</div>
+ <p class="note">Upload an aerial/topo image or share a map service. Sync to Cloudflare for everyone in your company.</p>
+ <button class="btn primary" type="button" id="ttMapAddToggle">＋ Upload / Add Custom Map</button>
+ <div id="ttMapEditor" hidden style="margin:8px 0">
+  <label>Map name</label><input id="ttMapName" placeholder="Company Aerial / Survey Topo">
+  <label>Map source</label><select id="ttMapType"><option value="geotiff">Georeferenced GeoTIFF (.tif)</option><option value="image">PNG/JPEG image overlay (requires geographic bounds)</option><option value="xyz">XYZ tile service URL</option><option value="wms">WMS map service URL</option></select>
+  <div id="ttMapFileBox"><label>Map file from PC / iPad</label><input type="file" id="ttMapFile" accept=".tif,.tiff,.png,.jpg,.jpeg,.webp"></div>
+  <div id="ttMapUrlBox" hidden><label>HTTPS tile / map service URL</label><input type="text" id="ttMapURL" placeholder="https://tiles.example.com/{z}/{x}/{y}.png"><label id="ttMapWMSLabel" hidden>WMS layer name</label><input id="ttMapWMSLayers" placeholder="workspace:layer" hidden></div>
+  <div id="ttMapBoundsBox" hidden><label>Image bounds (west, south, east, north) · WGS84</label><input id="ttMapBounds" placeholder="-98.200, 29.100, -98.100, 29.200"><p class="note">For a regular JPG/PNG you must enter its geographic corners; an ordinary image contains no location data.</p></div>
+  <label>Attribution / source credit (for map services)</label><input id="ttMapAttribution" placeholder="Imagery © provider">
+  <button type="button" class="btn primary" id="ttMapStage">Add to Company Map Library</button>
+ </div>
+ <div class="flex"><button type="button" class="btn" id="ttMapSync">↑ Sync Custom Maps</button><button type="button" class="btn" id="ttMapRefresh">↻ Refresh Maps</button></div>
+ <div class="note" id="ttMapStatus" role="status">Sign in to access company map layers.</div><div id="ttMapList" class="note"></div>
+</div>
+<label><input type="checkbox" id="showOriginal" checked> Original IFC CL (dashed)</label><label><input type="checkbox" id="showCad" checked> CAD / edited centerline</label><label><input type="checkbox" id="showRef" checked> Reference GIS</label><label><input type="checkbox" id="showAnnotations" checked> Arrow annotations</label><h2>EXPORT</h2><button class="btn primary" id="kmz">Export KMZ + imported GIS + photos</button><button class="btn primary" id="dxf">Export DXF (project CRS)</button><button class="btn primary" id="photoReport">▣ Export Photo Report — Pick CL First</button><p class="note">Projects are not automatically saved. Export ZIP backups to On My iPad for durable copies.</p></aside><div class="foot"><div class="chip" id="modeText">SELECT</div><div class="chip" id="measure">CL: —</div><div class="spacer"></div><button class="btn" id="closeMenu">Hide menu</button></div><div class="modalbg" id="modalbg"><div class="modal"><h3 id="modalTitle">Pin</h3><div id="modalBody"></div><div class="flex" style="margin-top:12px"><button class="btn" id="modalCancel">Close</button><button class="btn primary" id="modalOK">Save</button></div></div></div><input type="file" id="fileGISLibrary" multiple accept=".kml,.kmz,.geojson,.json,.zip" multiple hidden><input type="file" id="fileCL" accept=".csv,text/csv" hidden><input type="file" id="fileGIS" accept=".geojson,.json,.kml,.kmz,application/vnd.google-earth.kmz" hidden><input type="file" id="fileProject" accept=".json" hidden><input type="file" id="fileBackup" accept=".zip" hidden><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script><script src="https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
 (()=>{'use strict';let kmzSelectedCL=null,kmzPILayer=null,stationingSelection=null;const $=id=>document.getElementById(id);const state={projectName:'Untitled Project',crs:'',cl:[],original:[],points:[],photos:[],lines:[],reference:[],gisLibrary:[],annotations:[],stationEquations:[],stationingOverlay:null,stationingVisible:true,dimensions:[],ownershipTracts:{},ownershipRows:[],ownershipRoute:null,tractFolders:{},tractDocuments:{},googleTractFolders:{},tractNotes:{},buildSheets:{},ownershipSettings:{},annotationStart:null,dimensionStart:[],mode:'select',history:[],drawing:[],inverse:[],counter:1,selectedLine:null,trimTarget:null};let map,base,originalLayer,clLayer,vertexLayer,pointLayer,photoLayer,lineLayer,refLayer,stationLayer,drawLayer,gpsLayer,annotationLayer;let gpsWatch=null,gpsMarker=null,gpsCircle=null,gpsLast=null;const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const status=s=>$('status').textContent=s;const download=(name,blob)=>{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)};const icon=(cls)=>L.divIcon({className:'',html:`<div class="${cls}"></div>`,iconSize:[17,17],iconAnchor:[8,8]});const EPSG_DEFS={2257:"+proj=tmerc +lat_0=31 +lon_0=-104.333333333333 +k=0.999909091 +x_0=165000 +y_0=0 +datum=NAD83 +units=us-ft +no_defs +type=crs",2258:"+proj=tmerc +lat_0=31 +lon_0=-106.25 +k=0.9999 +x_0=500000.0001016 +y_0=0 +datum=NAD83 +units=us-ft +no_defs +type=crs",2259:"+proj=tmerc +lat_0=31 +lon_0=-107.833333333333 +k=0.999916667 +x_0=830000.0001016 +y_0=0 +datum=NAD83 +units=us-ft +no_defs +type=crs",2275:"+proj=lcc +lat_0=34 +lon_0=-101.5 +lat_1=36.1833333333333 +lat_2=34.65 +x_0=200000.0001016 +y_0=999999.9998984 +datum=NAD83 +units=us-ft +no_defs +type=crs",2276:"+proj=lcc +lat_0=31.6666666666667 +lon_0=-98.5 +lat_1=33.9666666666667 +lat_2=32.1333333333333 +x_0=600000 +y_0=2000000.0001016 +datum=NAD83 +units=us-ft +no_defs +type=crs",2277:"+proj=lcc +lat_0=29.6666666666667 +lon_0=-100.333333333333 +lat_1=31.8833333333333 +lat_2=30.1166666666667 +x_0=699999.9998984 +y_0=3000000 +datum=NAD83 +units=us-ft +no_defs +type=crs",2278:"+proj=lcc +lat_0=27.8333333333333 +lon_0=-99 +lat_1=30.2833333333333 +lat_2=28.3833333333333 +x_0=600000 +y_0=3999999.9998984 +datum=NAD83 +units=us-ft +no_defs +type=crs",2279:"+proj=lcc +lat_0=25.6666666666667 +lon_0=-98.5 +lat_1=27.8333333333333 +lat_2=26.1666666666667 +x_0=300000 +y_0=5000000.0001016 +datum=NAD83 +units=us-ft +no_defs +type=crs",26913:"+proj=utm +zone=13 +datum=NAD83 +units=m +no_defs +type=crs",26914:"+proj=utm +zone=14 +datum=NAD83 +units=m +no_defs +type=crs",32112:"+proj=tmerc +lat_0=31 +lon_0=-104.333333333333 +k=0.999909091 +x_0=165000 +y_0=0 +datum=NAD83 +units=m +no_defs +type=crs",32140:"+proj=lcc +lat_0=27.8333333333333 +lon_0=-99 +lat_1=30.2833333333333 +lat_2=28.3833333333333 +x_0=600000 +y_0=4000000 +datum=NAD83 +units=m +no_defs +type=crs"};const WGS='EPSG:4326';const validCRS=()=>{if(!state.crs)throw Error('Set the verified project CRS before using Northing/Easting or DXF.')};const toLL=(p)=>{validCRS();const [lon,lat]=proj4(state.crs,WGS,[p.e,p.n]);if(!isFinite(lon)||!isFinite(lat)||Math.abs(lat)>90||Math.abs(lon)>180)throw Error('Coordinate conversion failed; check CRS and units.');return [lat,lon]};const toXY=(ll)=>{validCRS();const [e,n]=proj4(WGS,state.crs,[ll.lng,ll.lat]);return {e,n}};const ll=p=>[p.lat,p.lon];const coords=p=>p.e!==undefined?toLL(p):[p.lat,p.lon];const distance=(a,b)=>Math.hypot(a.e-b.e,a.n-b.n);const length=pts=>pts.slice(1).reduce((s,p,i)=>s+distance(p,pts[i]),0);const sta=x=>`${Math.floor(x/100)}+${(x%100).toFixed(2).padStart(5,'0')}`;const UNDO_LIMIT=100;const undoSnapshot=()=>JSON.stringify({cl:state.cl,original:state.original,points:state.points,photos:state.photos,lines:state.lines,reference:state.reference,annotations:state.annotations,dimensions:state.dimensions,stationEquations:state.stationEquations,stationingOverlay:state.stationingOverlay,counter:state.counter});const remember=()=>{const snap=undoSnapshot();if(state.history[state.history.length-1]===snap)return;state.history.push(snap);if(state.history.length>UNDO_LIMIT)state.history.shift();updateUndoButton()};function updateUndoButton(){const b=$('undo');if(!b)return;b.textContent='↶ Undo edit'+(state.history.length?' ('+state.history.length+' available)':'');b.disabled=!state.history.length;};// IndexedDB stores full project snapshots, including photo data, without localStorage's small quota.
  const memoryProjects=new Map();let saveSequence=0;
  async function dbSet(k,v){memoryProjects.set(k,structuredClone(v))}
@@ -228,7 +252,7 @@ function zoomToProject(){
     }
   }catch(err){console.warn('Project auto-zoom skipped:',err)}
 }
-function init(){map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([29.45,-97.9],12);L.control.zoom({position:'bottomright'}).addTo(map);const tiles={Aerial:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',Street:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',Topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'};function basemap(k){if(base)map.removeLayer(base);base=L.tileLayer(tiles[k],{maxZoom:19,maxNativeZoom:k==='Topo'?17:19,attribution:k==='Aerial'?'Imagery © Esri and contributors':k==='Topo'?'Map data © OpenStreetMap contributors · Map style © OpenTopoMap (CC-BY-SA)':'© OpenStreetMap contributors'}).addTo(map)}basemap('Aerial');$('aerial').onclick=()=>basemap('Aerial');$('street').onclick=()=>basemap('Street');$('topo').onclick=()=>basemap('Topo');originalLayer=L.layerGroup().addTo(map);clLayer=L.layerGroup().addTo(map);vertexLayer=L.layerGroup().addTo(map);pointLayer=L.layerGroup().addTo(map);photoLayer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);refLayer=L.layerGroup().addTo(map);gisPreview=L.layerGroup().addTo(map);map.createPane("kmzPIPane");map.getPane("kmzPIPane").style.zIndex="750";map.getPane("kmzPIPane").style.pointerEvents="none";kmzPILayer=L.layerGroup().addTo(map);drawLayer=L.layerGroup().addTo(map);annotationLayer=L.layerGroup().addTo(map);gpsLayer=L.layerGroup().addTo(map);stationLayer=L.layerGroup().addTo(map);setupStorageUI();setupPolygonHold();installCADHoldMove();$('showVertices').checked=false;setupImportedLayersUI();knownProjects=[];projectList();render();map.on('click',onMapClick);map.on('click',onCADObjectMapClick);map.on('mousemove',e=>{dimensionMove(e.latlng);if(state.mode==='draw'&&state.drawing.length)ttDrawPreview(e.latlng)});
+function init(){map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([29.45,-97.9],12);L.control.zoom({position:'bottomright'}).addTo(map);const tiles={Aerial:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',Street:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',Topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'};function basemap(k){if(base)map.removeLayer(base);base=L.tileLayer(tiles[k],{maxZoom:19,maxNativeZoom:k==='Topo'?17:19,attribution:k==='Aerial'?'Imagery © Esri and contributors':k==='Topo'?'Map data © OpenStreetMap contributors · Map style © OpenTopoMap (CC-BY-SA)':'© OpenStreetMap contributors'}).addTo(map)}basemap('Aerial');window.ttMapForCompanyLayers=map;window.ttOriginalBasemapSelect=basemap;$('aerial').onclick=()=>basemap('Aerial');$('street').onclick=()=>basemap('Street');$('topo').onclick=()=>basemap('Topo');originalLayer=L.layerGroup().addTo(map);clLayer=L.layerGroup().addTo(map);vertexLayer=L.layerGroup().addTo(map);pointLayer=L.layerGroup().addTo(map);photoLayer=L.layerGroup().addTo(map);lineLayer=L.layerGroup().addTo(map);refLayer=L.layerGroup().addTo(map);gisPreview=L.layerGroup().addTo(map);map.createPane("kmzPIPane");map.getPane("kmzPIPane").style.zIndex="750";map.getPane("kmzPIPane").style.pointerEvents="none";kmzPILayer=L.layerGroup().addTo(map);drawLayer=L.layerGroup().addTo(map);annotationLayer=L.layerGroup().addTo(map);gpsLayer=L.layerGroup().addTo(map);stationLayer=L.layerGroup().addTo(map);setupStorageUI();setupPolygonHold();installCADHoldMove();$('showVertices').checked=false;setupImportedLayersUI();knownProjects=[];projectList();render();map.on('click',onMapClick);map.on('click',onCADObjectMapClick);map.on('mousemove',e=>{dimensionMove(e.latlng);if(state.mode==='draw'&&state.drawing.length)ttDrawPreview(e.latlng)});
  const mapEl=map.getContainer();
   mapEl.addEventListener('pointermove',e=>{if(state.mode==='draw'&&state.drawing.length&&e.pointerType==='touch'){const r=mapEl.getBoundingClientRect();ttDrawPreview(map.containerPointToLatLng([e.clientX-r.left,e.clientY-r.top]))}},{passive:true});
  mapEl.addEventListener('touchstart',e=>{if(state.mode==='dimension'&&state.dimensionStart.length===2){dimensionTouchMoved=false;map.dragging.disable()}},{passive:true});
@@ -1795,8 +1819,7 @@ function exportSelectedKMZCL(){
 
 // Initialize the personal GIS library before init() calls setupGISUI().
 // This prevents a temporal-dead-zone error when opening TerraTrace projects.
-const ttLocalGISLibrary=[];
-init()
+const ttLocalGISLibrary=[];window.ttPersonalGISLibrary=()=>ttLocalGISLibrary;window.ttPersonalGISAdd=(d)=>{const i=ttLocalGISLibrary.findIndex(x=>x.name===d.name);if(i>=0)ttLocalGISLibrary[i]=d;else ttLocalGISLibrary.push(d);gisLibraryUI();}; init()
 // Region ZIPs are stored separately from project snapshots. Only selected ZIP layers are decompressed at search time.
 const GIS_PACKAGE_DB='TerraTrace_Regional_Packages_v1';let gisPkgDBPromise;
 function gisPkgDB(){if(!gisPkgDBPromise)gisPkgDBPromise=new Promise((ok,fail)=>{const r=indexedDB.open(GIS_PACKAGE_DB,1);r.onupgradeneeded=()=>r.result.createObjectStore('packages');r.onsuccess=()=>ok(r.result);r.onerror=()=>fail(r.error)});return gisPkgDBPromise}
@@ -1895,7 +1918,8 @@ async function extractGIS(){const btn=$('gisExtract');btn.disabled=true;try{
  const shape=gisSelectedShape();if(!shape)throw Error('Tap Pick Line and select a KMZ/CAD alignment, or tap one map position in Pick Area mode.');
  const buffer=turf.buffer(shape,radius,{units:'feet'}),bounds=gisFeatureBounds(buffer);
  const selectedCats=new Set(Array.from(document.querySelectorAll('.gisCategory:checked')).map(el=>el.dataset.category));
- const datasets=Array.from(document.querySelectorAll('.gisDataset:checked')).map(x=>state.gisLibrary[Number(x.value)]).concat(Array.from(document.querySelectorAll('.gisLocalDataset:checked')).map(x=>ttLocalGISLibrary[Number(x.value)])).filter(Boolean);
+ const sharedDatasets=window.ttCompanyGIS?await window.ttCompanyGIS.searchBuffer(buffer):[];
+ const datasets=Array.from(document.querySelectorAll('.gisDataset:checked')).map(x=>state.gisLibrary[Number(x.value)]).concat(Array.from(document.querySelectorAll('.gisLocalDataset:checked')).map(x=>ttLocalGISLibrary[Number(x.value)]),sharedDatasets).filter(Boolean);
  const localFGBReady=false;
  const pythonReady=window.terraTracePythonGIS?.enabled?.()||false;
  const cloudReady=!pythonReady&&(window.terraTraceR2?.hasSelection?.()||false);
@@ -3249,7 +3273,7 @@ function companyChoice(){if(me.role!=='super_admin')return me.company_id;const l
 async function newCompany(){const name=prompt('Company name');if(!name?.trim())return;const suggested=name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');const id=prompt('Company workspace ID (lowercase, unique)',suggested);if(!id)return;const r=await api('/v1/companies','POST',{id,name:name.trim()});await refreshAll();output('Created company: '+r.name);}
 async function newUser(){const company_id=companyChoice();if(!company_id)return;const name=prompt('Employee name');if(!name)return;const email=prompt('Employee email');if(!email)return;const role=prompt('Role: company_admin, management, field, viewer', 'field');if(!role)return;const password=prompt('Temporary password (12+ characters). Give it privately to the employee.');if(!password)return;await api('/v1/users','POST',{company_id,name,email,role,password});await refreshUsers();output('User created. Share credentials securely and reset the temporary password before wider rollout.');}
 async function newProject(){const company_id=companyChoice();if(!company_id)return;const name=prompt('New cloud project name');if(!name?.trim())return;const r=await api('/v1/projects','POST',{company_id,name});await refreshAll();syncProjectSelect(r.project.id);output(`Created ${name}. Open it to work on the map.`);}
-async function openProject(id){const r=await api(`/v1/projects/${encodeURIComponent(id)}`);selected=r.project;selectedRev=r.project.revision;window.ttProject.open(r.data,r.project.name);syncProjectSelect(id);$('etSelected').textContent=`Current: ${r.project.name} · revision ${selectedRev}`;drawerState();output(`Opened ${r.project.name} from ${r.project.company_id}.`);closeGate();}
+async function openProject(id){const r=await api(`/v1/projects/${encodeURIComponent(id)}`);selected=r.project;selectedRev=r.project.revision;window.ttProject.open(r.data,r.project.name);syncProjectSelect(id);$('etSelected').textContent=`Current: ${r.project.name} · revision ${selectedRev}`;drawerState();output(`Opened ${r.project.name} from ${r.project.company_id}.`);window.dispatchEvent(new Event('tt-enterprise-project-open'));closeGate();}
 // Viewer role: only notes and build sheets can be submitted, using the restricted
 // authenticated Worker route. Never send a viewer's entire project snapshot.
 async function saveViewerPaperwork(){
@@ -3335,6 +3359,10 @@ async function saveViewerCAD(){
  drawerState();output('Viewer CAD changes saved and verified · revision '+selectedRev+'.');
 }
 async function saveProject(){
+ if(!selected)throw Error('Open an Enterprise project first');
+ if(window.ttProject.name!==selected.name)throw Error('The current map is a different local project. Reopen the Enterprise project before syncing GIS.');
+ if(window.ttCompanyGIS)await window.ttCompanyGIS.syncPending();
+  if(window.ttCompanyMaps)await window.ttCompanyMaps.syncPending();
  if(me?.role==='viewer'){
   await saveViewerCAD();
   return saveViewerPaperwork();
@@ -3909,10 +3937,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
    try{
     if(typeof JSZip==='undefined')throw Error('Shapefile ZIP library unavailable. Check internet connection.');
     message.textContent='Preparing '+source+' ('+selected.length+' files)…';
-    const inputs=[],warn=[];
+    const inputs=[],directFGB=[],warn=[];
     const groups=new Map();
     for(const f of selected){
      const relative=(f.webkitRelativePath||f.name).replace(/\\/g,'/');
+     if(/\.fgb$/i.test(f.name)){directFGB.push({name:relative,file:f});continue;}
      if(/\.zip$/i.test(f.name)){inputs.push({name:relative,file:f});continue;}
      if(!/\.(shp|shx|dbf|prj|cpg)$/i.test(f.name))continue;
      const key=relative.replace(/\.[^.\/]+$/,'').toLowerCase();
@@ -3931,15 +3960,267 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
      const zipped=await zip.generateAsync({type:'blob',compression:'STORE',streamFiles:true});
      inputs.push({name:group.name+'.shp',file:new File([zipped],group.parts[0].name.replace(/\.[^.]+$/,'')+'.zip',{type:'application/zip'})});
     }
-    if(!inputs.length)throw Error('No complete Shapefiles found. Select a .zip or matching .shp, .shx and .dbf files (plus .prj if available).');
+    if(!inputs.length&&!directFGB.length)throw Error('No complete Shapefiles found. Select .fgb, a .zip, or matching .shp, .shx and .dbf files.');
     message.textContent='Loading '+inputs.length+' GIS dataset(s) into this device for corridor searches…';
     const result=await importFn(inputs);
+    const failed=new Set((result.errors||[]).map(e=>String(e).split(': ')[0]));
+    for(const item of directFGB){
+     try{const geo=await window.ttCompanyGIS.decodeFGB(item.file);const name=item.name.replace(/\.fgb$/i,'');const fc=geo?.type==='FeatureCollection'?geo:{type:'FeatureCollection',features:[]};if(!fc.features.length)throw Error('No GIS features');
+      window.ttPersonalGISAdd({name,category:/parcel|tract|landowner/i.test(name)?'Land Parcels':name,geo:fc});result.added++;result.features+=fc.features.length;
+     }catch(e){warn.push(item.name+': '+e.message)}
+    }
+    if(window.ttCompanyGIS)window.ttCompanyGIS.queue(inputs.filter(item=>!failed.has(item.name)),directFGB);
     const errors=[...warn,...result.errors];
-    message.textContent=(result.added?'Ready: '+result.added+' local layer(s), '+result.features.toLocaleString()+' features. Pick a route/area and click SEARCH CHECKED GIS IN BUFFER.':'No layers were loaded.')+(errors.length?'\nWarnings: '+errors.slice(0,6).join(' | '):'')+'\nLocal session only — your original folders and files are unchanged; no Cloudflare upload.';
+    message.textContent=(result.added?'Ready: '+result.added+' local layer(s), '+result.features.toLocaleString()+' features. Pick a route/area and click SEARCH CHECKED GIS IN BUFFER.':'No layers were loaded.')+(errors.length?'\nWarnings: '+errors.slice(0,6).join(' | '):'')+'\nYour original files stay unchanged. FlatGeobuf datasets are queued for company sharing; use Sync Changes or Share Pending GIS.';
    }catch(err){message.textContent='GIS import error: '+(err?.message||String(err));}
   }
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+<script id="tt-company-gis-script">
+(function(){'use strict';
+ const $=id=>document.getElementById(id), pending=[], MAX_BYTES=80*1048576;
+ let companyList=[],busy=false,fgbLib;
+ const signed=()=>!!window.ttEnterpriseSessionToken?.();
+ const role=()=>window.ttEnterpriseRole||'';
+ const context=()=>{const id=window.ttEnterpriseCurrentProjectId?.();return id?'?project_id='+encodeURIComponent(id):''};
+ const url=(id='',action='')=>(window.ttEnterpriseWorkerURL||'')+'/v1/company-gis'+(id?'/'+encodeURIComponent(id):'')+(action?'/'+action:'')+context();
+ const status=s=>{if($('ttCompanyGISStatus'))$('ttCompanyGISStatus').textContent=s;};
+ async function request(u,opts={}){if(!signed())throw Error('Please sign in first');
+  const r=await fetch(u,{...opts,headers:{Authorization:'Bearer '+window.ttEnterpriseSessionToken(),...(opts.headers||{})},cache:'no-store'});
+  if(!r.ok){const j=await r.json().catch(()=>({}));throw Error(j.error||'Cloudflare returned HTTP '+r.status)}return r;}
+ async function lib(){if(!fgbLib){fgbLib=await import('https://esm.sh/flatgeobuf@4.6.0/lib/mjs/geojson.js').catch(()=>import('https://cdn.jsdelivr.net/npm/flatgeobuf@4.6.0/lib/mjs/geojson.js'));}return fgbLib;}
+ async function decodeFGB(file){const {deserialize}=await lib();const result=deserialize(new Uint8Array(await file.arrayBuffer()));
+  if(result?.type==='FeatureCollection')return result;
+  const features=[];for await(const f of result)features.push(f);return {type:'FeatureCollection',features};}
+ function queue(inputs=[],directFGB=[]){if(role()==='viewer')return status('Viewer accounts cannot publish GIS datasets');
+  const library=window.ttPersonalGISLibrary?.()||[];
+  for(const original of inputs){const found=library.filter(d=>d.name===original.name||d.name.startsWith(original.name+' / '));
+   for(const d of found)addQueue({name:d.name,geo:d.geo});}
+  for(const input of directFGB){const name=input.name.replace(/\.fgb$/i,'');const d=library.find(x=>x.name===name);if(d)addQueue({name:d.name,geo:d.geo,file:input.file});}
+  status(pending.length+' FlatGeobuf dataset(s) queued for company sharing. Click Sync Changes or Share Pending GIS.');
+ }
+ function addQueue(item){const at=pending.findIndex(q=>q.name===item.name);if(at>=0)pending.splice(at,1);pending.push(item);}
+ function makeIndex(fc){
+  if(typeof turf==='undefined')throw Error('Turf.js is required for spatial indexing');
+  const items=fc.features.filter(f=>f?.type==='Feature'&&f.geometry).map(f=>{
+   const b=turf.bbox(f);if(!b.every(Number.isFinite)||b[0]<-180||b[2]>180||b[1]<-90||b[3]>90)throw Error('GIS features must be EPSG:4326 (lon/lat) before FlatGeobuf upload');
+   const mx=(b[0]+b[2])/2,my=(b[1]+b[3])/2;
+   return {f,b,mx,my};
+  });
+  // Spatial sorting keeps nearby parcels close together on R2, minimizing reads.
+  items.sort((a,b)=>Math.floor(a.my*10)-Math.floor(b.my*10)||a.mx-b.mx);
+  const chunks=[],meta=[];let group=[],size=40,box;
+  function flush(){if(!group.length)return;
+   const n=chunks.length;const coll={type:'FeatureCollection',features:group};
+   const json=JSON.stringify(coll);if(new TextEncoder().encode(json).byteLength>512*1024)throw Error('An indexed GIS chunk is too large. Simplify source geometries.');
+   chunks.push(json);meta.push({n,bbox:box,count:group.length});group=[];size=40;box=null;
+  }
+  for(const item of items){const len=new TextEncoder().encode(JSON.stringify(item.f)).byteLength;
+   if(len>400*1024)throw Error('A single GIS feature exceeds 400KB. Simplify the parcel polygon.');
+   if(group.length&&(group.length>=400||size+len>370*1024))flush();
+   group.push(item.f);size+=len+1;box=box?[Math.min(box[0],item.b[0]),Math.min(box[1],item.b[1]),Math.max(box[2],item.b[2]),Math.max(box[3],item.b[3])]:item.b;
+  }flush();if(!chunks.length)throw Error('No valid GIS features to index');
+  return {chunks,meta};
+ }
+ function render(){const host=$('ttCompanyGISList');if(!host)return;const checked=new Map([...host.querySelectorAll('.ttSharedGIS')].map(x=>[x.dataset.id,x.checked]));host.replaceChildren();
+  if(!companyList.length){host.textContent='No shared company GIS layers yet.';return;}
+  for(const d of companyList){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;border-bottom:1px solid #30485b;padding:7px 0;';
+   const lab=document.createElement('label');lab.style.cssText='flex:1;margin:0;min-width:0;font-size:11px;overflow-wrap:anywhere';
+   const cb=document.createElement('input');cb.className='ttSharedGIS';cb.dataset.id=d.id;cb.type='checkbox';cb.checked=checked.get(d.id)||false;cb.disabled=!d.indexed;
+   lab.append(cb,document.createTextNode(' '+d.name+' · '+(d.feature_count||'?')+' features'+(d.indexed?'':' · NEEDS INDEX')));row.append(lab);
+   if(!d.indexed&&role()!=='viewer'){
+    const index=document.createElement('button');index.type='button';index.className='btn';index.textContent='Index';index.style.cssText='width:auto;margin:0;padding:5px';
+    index.title='One-time conversion/index of an earlier ZIP or unfinished FlatGeobuf';
+    index.onclick=()=>indexExisting(d).catch(e=>status('Index failed: '+e.message));row.append(index);
+   }
+   if(['super_admin','company_admin','management'].includes(role())){const del=document.createElement('button');del.className='btn';del.type='button';del.style.cssText='width:auto;margin:0;padding:5px';del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete '+d.name+' for the entire company?'))return;try{await request(url(d.id),{method:'DELETE'});await refresh();}catch(e){status(e.message)}};row.append(del)}
+   host.append(row);
+  }
+ }
+ async function refresh(){if(!signed()){companyList=[];render();status('Sign in to use company GIS');return;}
+  try{const all=[];let cursor=null,pages=0;do{const endpoint=url()+(cursor?(url().includes('?')?'&':'?')+'cursor='+encodeURIComponent(cursor):'');
+    const r=await request(endpoint),result=await r.json();all.push(...result.datasets||[]);cursor=result.next_cursor;
+    if(++pages>400)throw Error('GIS library has too many pages. Narrow the company library.');
+   }while(cursor);companyList=all.sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));render();status(companyList.length+' company GIS layer(s) available'+(pending.length?' · '+pending.length+' pending sync':''));}catch(e){status('Company GIS: '+e.message)}
+ }
+ async function syncPending(){if(busy)throw Error('A GIS upload is already in progress');if(!pending.length)return {uploaded:0};if(!signed())throw Error('Sign in before syncing GIS');
+  if(role()==='viewer')throw Error('Viewer role cannot upload GIS');if(role()==='super_admin'&&!window.ttEnterpriseCurrentProjectId?.())throw Error('Open a company project first');
+  busy=true;let uploaded=0;const button=$('ttCompanyGISShare');if(button)button.disabled=true;
+  try{while(pending.length){const item=pending[0];
+    if(!item.index){status('Building spatial index for '+item.name+'…');item.index=makeIndex(item.geo);}
+    if(!item.id){
+     let blob;if(item.file){blob=item.file;}else{const module=await lib(),binary=module.serialize(item.geo,4326);blob=new Blob([binary],{type:'application/octet-stream'});}
+     if(blob.size>MAX_BYTES)throw Error(item.name+' is over 80 MB. Split into smaller counties or use a bulk upload.');
+     status('Sending FlatGeobuf '+item.name+' ('+(blob.size/1048576).toFixed(1)+' MB)…');
+     const r=await request(url(),{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Dataset-Name':encodeURIComponent(item.name)},body:blob});item.id=(await r.json()).dataset.id;
+    }
+    for(let n=item.next||0;n<item.index.chunks.length;n++){
+     const key=String(n).padStart(5,'0');
+     if(n%8===0)status('Indexing '+item.name+': '+n+'/'+item.index.chunks.length+' spatial chunks…');
+     await request(url(item.id,'chunks/'+key),{method:'PUT',headers:{'Content-Type':'application/json'},body:item.index.chunks[n]});item.next=n+1;
+    }
+    await request(url(item.id,'index'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({chunks:item.index.meta})});
+    pending.shift();uploaded++;
+   }
+   await refresh();status(uploaded+' dataset(s) shared and indexed. Coworkers can now run server-side buffer searches.');return {uploaded};
+  }catch(e){status('Company GIS sync stopped: '+e.message+'. Pending data remains in this tab.');throw e}
+  finally{busy=false;if(button)button.disabled=false}
+ }
+ async function indexExisting(d){
+  if(!confirm('Download '+d.name+' ONE TIME to prepare FlatGeobuf spatial indexing? This may use substantial RAM on iPad.'))return;
+  status('Downloading '+d.name+' for one-time indexing…');
+  const res=await request(url(d.id)),buffer=await res.arrayBuffer();let fc;
+  if(d.format==='TerraTrace Company Shapefile v1'){
+   if(typeof shp==='undefined')throw Error('Shapefile decoder unavailable');
+   const layers=await shp(buffer),all=Array.isArray(layers)?layers:[layers];
+   fc={type:'FeatureCollection',features:all.flatMap(x=>x?.type==='FeatureCollection'?x.features:[]).filter(x=>x?.geometry)};
+  }else fc=await decodeFGB(new Blob([buffer]));
+  if(!fc.features.length)throw Error('No GIS features in dataset');
+  const index=makeIndex(fc);
+  if(d.format==='TerraTrace Company Shapefile v1'){
+   const binary=(await lib()).serialize(fc,4326),blob=new Blob([binary],{type:'application/octet-stream'});
+   if(blob.size>MAX_BYTES)throw Error('Converted FGB exceeds 80MB; split county dataset for bulk processing');
+   status('Converting old ZIP to FlatGeobuf '+d.name+'…');
+   await request(url(d.id,'flatgeobuf'),{method:'PUT',headers:{'Content-Type':'application/octet-stream'},body:blob});
+  }
+  for(let i=0;i<index.chunks.length;i++){
+   if(i%8===0)status('Indexing '+d.name+': '+i+'/'+index.chunks.length+' chunks…');
+   await request(url(d.id,'chunks/'+String(i).padStart(5,'0')),{method:'PUT',headers:{'Content-Type':'application/json'},body:index.chunks[i]});
+  }
+  await request(url(d.id,'index'),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({chunks:index.meta})});
+  await refresh();status('Indexed '+d.name+' for company-wide buffer searches.');
+ }
+ async function searchBuffer(geometry){const selected=[...document.querySelectorAll('.ttSharedGIS:checked')].map(x=>companyList.find(d=>d.id===x.dataset.id)).filter(Boolean);
+  const datasets=[];
+  for(const d of selected){const features=[];let cursor=null,pages=0;
+   do{status('Cloud GIS buffer search: '+d.name+' · '+features.length+' matched…');
+    const r=await request(url(d.id,'search'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({geometry,limit:500,...cursor?{cursor}:{}})});
+    const result=await r.json();features.push(...result.features);cursor=result.next_cursor;
+    if(++pages>800||features.length>100000)throw Error('Too many parcels in the buffer. Narrow the route or reduce buffer width.');
+   }while(cursor);
+   if(features.length)datasets.push({name:d.name,category:/parcel|tract|landowner|ownership/i.test(d.name)?'Land Parcels':d.name,geo:{type:'FeatureCollection',features}});
+  }return datasets;
+ }
+ function clear(){pending.length=0;companyList=[];render();status('Sign in to use company GIS');}
+ function start(){$('ttCompanyGISShare')?.addEventListener('click',()=>syncPending().catch(e=>alert('Company GIS: '+e.message)));
+  $('ttCompanyGISRefresh')?.addEventListener('click',refresh);
+  window.addEventListener('tt-enterprise-login',refresh);window.addEventListener('tt-enterprise-project-open',refresh);window.addEventListener('tt-enterprise-logout',clear);
+  if(signed())refresh();else clear();
+ }
+ window.ttCompanyGIS={queue,refresh,syncPending,searchBuffer,decodeFGB};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+</script>
+<script id="tt-company-maps-script">
+(function(){'use strict';
+ const $=id=>document.getElementById(id),pending=[];let maps=[],activeId='',activeLayer=null,activeBlobUrl='',busy=false;
+ const signed=()=>!!window.ttEnterpriseSessionToken?.();
+ const role=()=>window.ttEnterpriseRole||'';
+ const context=()=>{const id=window.ttEnterpriseCurrentProjectId?.();return id?'?project_id='+encodeURIComponent(id):''};
+ const url=(id='')=>(window.ttEnterpriseWorkerURL||'')+'/v1/company-maps'+(id?'/'+encodeURIComponent(id):'')+context();
+ const status=msg=>{if($('ttMapStatus'))$('ttMapStatus').textContent=msg;};
+ async function api(path,options={}){if(!signed())throw Error('Sign in to use the company map library');
+  const res=await fetch(path,{...options,cache:'no-store',headers:{Authorization:'Bearer '+window.ttEnterpriseSessionToken(),...(options.headers||{})}});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw Error(e.error||'Map storage HTTP '+res.status)}return res;
+ }
+ function updateInputs(){const type=$('ttMapType').value;
+  $('ttMapFileBox').hidden=type==='xyz'||type==='wms';$('ttMapUrlBox').hidden=type==='image'||type==='geotiff';
+  $('ttMapWMSLabel').hidden=type!=='wms';$('ttMapWMSLayers').hidden=type!=='wms';$('ttMapBoundsBox').hidden=type!=='image';
+ }
+ function queue(){if(role()==='viewer')throw Error('Viewer accounts cannot share maps');
+  const type=$('ttMapType').value,name=$('ttMapName').value.trim();if(!name)throw Error('Enter a map name');
+  const item={name,type};
+  if(type==='image'||type==='geotiff'){
+   const file=$('ttMapFile').files[0];if(!file)throw Error('Select an image or GeoTIFF file');
+   if(file.size>80*1048576)throw Error('Custom map file exceeds 80 MB. Publish large aerial mosaics as a tile service.');
+   if(type==='image'&&!/\.(png|jpg|jpeg|webp)$/i.test(file.name))throw Error('Select a PNG, JPG, or WebP');
+   if(type==='geotiff'&&!/\.(tif|tiff)$/i.test(file.name))throw Error('Select a GeoTIFF (.tif/.tiff)');
+   item.file=file;item.bounds=$('ttMapBounds').value.trim();
+   if(type==='image'){
+    const b=item.bounds.split(',').map(Number);
+    if(b.length!==4||b.some(v=>!Number.isFinite(v))||b[0]>=b[2]||b[1]>=b[3]||b[0]<-180||b[2]>180||b[1]<-90||b[3]>90)throw Error('Enter valid WGS84 image bounds: west,south,east,north');
+   }
+  }else{
+   item.url=$('ttMapURL').value.trim();if(!/^https:\/\//i.test(item.url))throw Error('Use an HTTPS map service URL');
+   if(type==='xyz'&&!['{z}','{x}','{y}'].every(p=>item.url.includes(p)))throw Error('XYZ URL needs {z}, {x}, and {y}');
+   item.layers=$('ttMapWMSLayers').value.trim();if(type==='wms'&&!item.layers)throw Error('Enter the WMS layer name');
+   item.attribution=$('ttMapAttribution').value.trim();
+  }
+  const at=pending.findIndex(i=>i.name===name);if(at>=0)pending.splice(at,1);pending.push(item);
+  $('ttMapEditor').hidden=true;status(pending.length+' map(s) waiting for Sync Changes or Sync Custom Maps.');
+ }
+ function clearLayer(){const map=window.ttMapForCompanyLayers;if(map&&activeLayer){map.removeLayer(activeLayer);activeLayer=null;}if(activeBlobUrl){URL.revokeObjectURL(activeBlobUrl);activeBlobUrl='';}activeId='';}
+ function script(src,check){if(check())return Promise.resolve();return new Promise((resolve,reject)=>{
+  const el=document.createElement('script');el.src=src;el.onload=()=>check()?resolve():reject(Error('Map renderer did not initialize'));el.onerror=()=>reject(Error('Cannot load map renderer library'));document.head.appendChild(el);
+ });}
+ async function show(d){const map=window.ttMapForCompanyLayers;if(!map||typeof L==='undefined')throw Error('Open the map before adding a custom layer');
+  if(activeId===d.id){clearLayer();render();return;}
+  clearLayer();status('Opening '+d.name+'…');
+  if(d.type==='xyz'){activeLayer=L.tileLayer(d.url,{maxZoom:d.max_zoom||19,maxNativeZoom:19,attribution:d.attribution||''});}
+  else if(d.type==='wms'){activeLayer=L.tileLayer.wms(d.url,{layers:d.layers,format:'image/png',transparent:false,maxZoom:d.max_zoom||19,attribution:d.attribution||''});}
+  else{
+   const res=await api(url(d.id));const blob=await res.blob();
+   if(d.type==='image'){
+    activeBlobUrl=URL.createObjectURL(blob);
+    if(!Array.isArray(d.bounds)||d.bounds.length!==4)throw Error('Image has no geographic extent. Re-upload with valid WGS84 bounds.');
+    activeLayer=L.imageOverlay(activeBlobUrl,[[d.bounds[1],d.bounds[0]],[d.bounds[3],d.bounds[2]]],{opacity:1,pane:'tilePane'});
+   }else{
+    await script('https://unpkg.com/georaster@1.6.0/dist/georaster.browser.bundle.min.js',()=>typeof window.parseGeoraster==='function'||typeof window.parse_georaster==='function');
+    await script('https://unpkg.com/georaster-layer-for-leaflet@4.1.2/dist/v3/webpack/bundle/georaster-layer-for-leaflet.min.js',()=>typeof window.GeoRasterLayer==='function');
+    const raster=await (window.parseGeoraster||window.parse_georaster)(await blob.arrayBuffer());
+    if(!Number.isFinite(Number(raster?.projection)))throw Error('GeoTIFF has no supported georeferencing or projection');
+    activeLayer=new window.GeoRasterLayer({georaster:raster,opacity:1,resolution:128,pane:'tilePane'});
+   }
+  }
+  activeLayer.addTo(map);if(typeof activeLayer.setZIndex==='function')activeLayer.setZIndex(25);
+  activeId=d.id;render();status(d.name+' is visible on this map. Other company users can toggle it on from Map Layers.');
+ }
+ function render(){const host=$('ttMapList');if(!host)return;host.replaceChildren();
+  if(!maps.length){host.textContent='No custom company map layers yet.';return;}
+  for(const d of maps){const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;border-bottom:1px solid #294256;padding:7px 0';
+   const button=document.createElement('button');button.type='button';button.className='btn';button.style.cssText='flex:1;width:auto;text-align:left;margin:0';button.textContent=(activeId===d.id?'☑ ':'☐ ')+d.name+' · '+d.type.toUpperCase();
+   button.onclick=()=>show(d).catch(e=>status('Map failed: '+e.message));row.append(button);
+   if(['super_admin','company_admin','management'].includes(role())){const del=document.createElement('button');del.className='btn';del.type='button';del.style.cssText='width:auto;margin:0;padding:5px';del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete map '+d.name+' for the entire company?'))return;try{await api(url(d.id),{method:'DELETE'});if(activeId===d.id)clearLayer();await refresh();}catch(e){status(e.message)}};row.append(del);}
+   host.append(row);
+  }
+ }
+ async function refresh(){if(!signed()){maps=[];clearLayer();render();status('Sign in to use company maps');return;}
+  try{const found=[];let cursor=null,pages=0,result;
+   do{const endpoint=url()+(cursor?(url().includes('?')?'&':'?')+'cursor='+encodeURIComponent(cursor):'');
+    result=await (await api(endpoint)).json();found.push(...result.maps||[]);cursor=result.next_cursor;
+    if(++pages>300)throw Error('Map list has too many pages');
+   }while(cursor);
+   const companyChanged=window.ttCompanyMapsTenant&&window.ttCompanyMapsTenant!==result.company_id;
+   if(companyChanged)clearLayer();window.ttCompanyMapsTenant=result.company_id;maps=found.sort((a,b)=>b.uploaded_at.localeCompare(a.uploaded_at));
+   if(activeId&&!maps.some(m=>m.id===activeId))clearLayer();render();status(maps.length+' company custom map(s) available'+(pending.length?', '+pending.length+' pending sync':''));
+  }catch(e){status('Refresh maps failed: '+e.message)}
+ }
+ async function syncPending(){if(busy)throw Error('Custom map sync in progress');if(!pending.length)return {uploaded:0};if(!signed())throw Error('Sign in to share maps');
+  if(role()==='viewer')throw Error('Viewer cannot upload maps');if(role()==='super_admin'&&!window.ttEnterpriseCurrentProjectId?.())throw Error('Open a company project first');
+  busy=true;let count=0;
+  try{while(pending.length){const item=pending[0];status('Uploading custom map '+item.name+' to company Cloudflare R2…');
+   const headers={'X-Map-Type':item.type,'X-Map-Name':encodeURIComponent(item.name)};
+   let data;
+   if(item.file){headers['Content-Type']=item.type==='geotiff'?'image/tiff':item.file.type||(/\.png$/i.test(item.file.name)?'image/png':/\.webp$/i.test(item.file.name)?'image/webp':'image/jpeg');
+    if(item.bounds)headers['X-Map-Bounds']=item.bounds;data=item.file;
+   }else{headers['Content-Type']='application/json';data=JSON.stringify({url:item.url,layers:item.layers,attribution:item.attribution});}
+   await api(url(),{method:'POST',headers,body:data});pending.shift();count++;
+  }await refresh();status(count+' custom map(s) synced. Everyone in this company can now view them in Map Layers.');return {uploaded:count};
+  }catch(e){status('Map sync stopped: '+e.message+' · '+pending.length+' map(s) still pending');throw e}
+  finally{busy=false}
+ }
+ function clear(){pending.length=0;maps=[];clearLayer();window.ttCompanyMapsTenant='';render();status('Sign in to access company maps');}
+ function start(){const required=['ttMapAddToggle','ttMapType','ttMapEditor','ttMapStage','ttMapSync','ttMapRefresh'];if(required.some(id=>!$(id)))return;
+  $('ttMapAddToggle').onclick=()=>{$('ttMapEditor').hidden=!$('ttMapEditor').hidden};$('ttMapType').onchange=updateInputs;updateInputs();
+  $('ttMapStage').onclick=()=>{try{queue()}catch(e){status(e.message)}};
+  $('ttMapSync').onclick=()=>syncPending().catch(e=>alert('Company custom map: '+e.message));$('ttMapRefresh').onclick=refresh;
+  window.addEventListener('tt-enterprise-login',refresh);window.addEventListener('tt-enterprise-project-open',refresh);window.addEventListener('tt-enterprise-logout',clear);
+  if(signed())refresh();else clear();
+ }
+ window.ttCompanyMaps={syncPending,refresh};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
 </body></html>

@@ -1635,14 +1635,19 @@ function showKMZPIs(){
  if(!kmzPILayer)return;
  kmzPILayer.clearLayers();
  if(!$('showRef').checked||!$('showVertices').checked)return;
- // Each imported KMZ/KML line is independent. Mark ALL vertices, not just the longest line.
+ // Vertex handles belong ONLY to KML/KMZ file imports. CAD and drawn centerline
+ // vertices are rendered separately above in vertexLayer. GIS Data Hub, Company
+ // GIS, ownership searches, and other GeoJSON imports are viewing layers here.
  const lines=[];
  for(const geo of state.reference){
-  if(geo._visible===false)continue;
+  if(geo._visible===false || geo._terraGISSearch===true || geo._ownershipSearch===true)continue;
   const features=geo.type==='FeatureCollection'?geo.features:geo.type==='Feature'?[geo]:[];
+  // Existing saved KML/KMZ projects can predate the per-feature _terraKMZ tag.
+  // Their original imported filename is retained in _sourceName.
+  const fromKMZFile=/\.km[zl]$/i.test(String(geo._sourceName||''));
   for(const f of features){
-   if(!f.geometry || !/LineString/.test(f.geometry.type))continue;
-   // Existing saved KMZ projects predate the source tag; show those too.
+   if(!f.geometry || !/LineString/.test(f.geometry.type) || f.properties?._kmzHidden===true)continue;
+   if(!fromKMZFile && f.properties?._terraKMZ!==true)continue;
    const parts=f.geometry.type==='LineString'?[f.geometry.coordinates]:f.geometry.coordinates;
    for(let k=0;k<parts.length;k++)if(parts[k].length>=2)lines.push({points:parts[k],name:f.properties?.name||f.properties?.Name||'KMZ Line',part:k});
   }

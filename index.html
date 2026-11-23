@@ -4452,6 +4452,23 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 .tt-app-notification{position:relative;background:#0d1719;border:1px solid #3b5857;color:#e9f4f0;border-radius:8px;padding:7px 10px;font:13px system-ui;cursor:pointer;pointer-events:auto}
 .tt-app-notification span{position:absolute;top:-6px;right:-5px;border-radius:20px;min-width:16px;padding:1px 4px;background:#ba5b49;color:white;font-size:10px;font-weight:750}
 #ttActivityButtonCount[hidden]{display:none!important}
+/* Show approximately three notifications, then scroll within the notification list. */
+#ttNotifications{
+  max-height:410px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:0 5px 1px 0;
+  scrollbar-width:thin;
+  scrollbar-color:#4b8076 #101a20;
+}
+#ttNotifications::-webkit-scrollbar{width:7px}
+#ttNotifications::-webkit-scrollbar-track{background:#101a20;border-radius:8px}
+#ttNotifications::-webkit-scrollbar-thumb{background:#4b8076;border-radius:8px}
+#ttActivitySection .tt-new-event:first-child{margin-top:2px}
+#ttActivitySection .tt-event-buttons{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+#ttActivitySection .tt-event-buttons .tt-mini{margin:0;width:auto;flex:0 0 auto}
+#ttActivitySection .tt-event-buttons [data-notice-delete]{color:#ffbbb0}
+@media(max-height:680px){#ttNotifications{max-height:45vh}}
 
 </style>
 <script id="tt-company-collab-script">
@@ -4465,6 +4482,23 @@ const user=()=>window.ttEnterpriseUser?.()||null;
 const api=(path,method='GET',body=null)=>window.terraTraceEnterpriseRequest(path,method,body);
 const pid=()=>window.ttEnterpriseCurrentProjectId?.()||'';
 let projects=[],invitations=[],events=[],eventLatest=0,unread=0,docFiles=[],folders=[],seatRecords=[],shares=[],pending=[],busy=false;
+// The existing API marks all events read, but does not expose a delete endpoint.
+// Keep individual dismissals in this browser, scoped to the signed-in user.
+let dismissedEvents=new Set(),dismissedIdentity='';
+const dismissStorageKey=identity=>'tt-notification-dismissed-v1:'+identity;
+function loadDismissedEvents(){
+ const identity=String(user()?.id||user()?.email||'');
+ if(identity===dismissedIdentity)return;
+ dismissedIdentity=identity;
+ try{const value=JSON.parse(localStorage.getItem(dismissStorageKey(identity))||'[]');dismissedEvents=new Set(Array.isArray(value)?value.map(String):[]);}
+ catch(_){dismissedEvents=new Set();}
+}
+function deleteNotice(id){
+ loadDismissedEvents();
+ dismissedEvents.add(String(id));
+ try{localStorage.setItem(dismissStorageKey(dismissedIdentity),JSON.stringify([...dismissedEvents].slice(-1000)));}catch(_){}
+ drawEvents();
+}
 let shareProject='',seatProject='',docProject='',docFolder='',docSearch='',lastIdentity='';
 const set=id=>$(id);
 const say=(id,msg,bad=false)=>{const e=$(id);if(e){e.textContent=msg;e.style.color=bad?'#ffb2a2':'#a9d2c8';}};
@@ -4532,11 +4566,18 @@ async function loadEvents(){if(!authed())return;
  catch(e){say('ttActivityStatus',e.message,true);}
 }
 function drawEvents(){
- $('ttNotifications').innerHTML=events.length?events.map(e=>`<div class="tt-new-event"><div class="tt-new-event-head"><b>${esc(e.actor_name)}</b><small>${esc(fmt(e.created_at))}</small></div><div>${esc(e.message)}</div><small>${esc(e.actor_company||e.actor_company_id||'TerraTrace')} · ${esc(e.project_name)}${e.revision?' · r'+e.revision:''}</small><button type="button" class="tt-mini" data-notice-project="${esc(e.project_id)}">Open Project</button></div>`).join(''):'<p class="tt-new-muted">No project activity yet. When someone syncs changes, the update will appear here for everyone authorized on that project.</p>';
- $('ttActivityCount').textContent=unread?`(${unread})`:'';
- $('ttActivityButtonCount').textContent=unread?String(Math.min(unread,99))+(unread>99?'+':''):'';
- $('ttActivityButtonCount').hidden=!unread;
- say('ttActivityStatus',unread?`${unread} unread notification${unread===1?'':'s'}`:'All caught up.');
+ loadDismissedEvents();
+ // Events are returned newest first, and the API reports how many are unread.
+ // Older, already-read events are automatically removed from this panel.
+ const unreadEvents=events.slice(0,Math.max(0,Number(unread)||0));
+ const visible=unreadEvents.filter(e=>!dismissedEvents.has(String(e.id)));
+ const count=visible.length;
+ $('ttNotifications').innerHTML=count?visible.map(e=>`<div class="tt-new-event"><div class="tt-new-event-head"><b>${esc(e.actor_name)}</b><small>${esc(fmt(e.created_at))}</small></div><div>${esc(e.message)}</div><small>${esc(e.actor_company||e.actor_company_id||'TerraTrace')} · ${esc(e.project_name)}${e.revision?' · r'+e.revision:''}</small><div class="tt-event-buttons"><button type="button" class="tt-mini danger" data-notice-delete="${esc(e.id)}" title="Remove notification from this browser">Delete</button><button type="button" class="tt-mini" data-notice-project="${esc(e.project_id)}">Open Project</button></div></div>`).join(''):'<p class="tt-new-muted">No unread notifications. New project activity will appear here.</p>';
+ $('ttActivityCount').textContent=count?`(${count})`:'';
+ $('ttActivityButtonCount').textContent=count?String(Math.min(count,99))+(count>99?'+':''):'';
+ $('ttActivityButtonCount').hidden=!count;
+ $('ttReadActivity').disabled=!unread;
+ say('ttActivityStatus',count?`${count} unread notification${count===1?'':'s'} · Scroll for more`:'All caught up.');
 }
 async function readEvents(){if(!eventLatest)return;await api('/v1/events/read','POST',{last_event_id:eventLatest});await loadEvents();}
 async function openNotice(id){
@@ -4597,12 +4638,17 @@ function init(){if($('ttCompanySection'))return;
  $('ttInviteInbox').onclick=async e=>{const a=e.target.closest('[data-invite-accept]'),d=e.target.closest('[data-invite-decline]');try{if(a)await decision(a.dataset.inviteAccept,'accept');if(d)await decision(d.dataset.inviteDecline,'decline');}catch(err){say('ttInviteInboxStatus',err.message,true);}};
  $('ttSeatList').onchange=e=>{if(e.target.matches('[data-seat]'))seatChange(e.target);};
  $('ttRefreshActivity').onclick=loadEvents;$('ttReadActivity').onclick=()=>readEvents().catch(e=>say('ttActivityStatus',e.message,true));
- $('ttNotifications').onclick=e=>{const b=e.target.closest('[data-notice-project]');if(b)openNotice(b.dataset.noticeProject).catch(err=>say('ttActivityStatus',err.message,true));};
+ $('ttNotifications').onclick=e=>{
+ const del=e.target.closest('[data-notice-delete]');
+ if(del){deleteNotice(del.dataset.noticeDelete);return;}
+ const b=e.target.closest('[data-notice-project]');
+ if(b)openNotice(b.dataset.noticeProject).catch(err=>say('ttActivityStatus',err.message,true));
+};
  $('ttUploadDocs').onclick=()=>$('ttDocInput').click();$('ttDocInput').onchange=e=>{const f=[...e.target.files];e.target.value='';if(f.length)uploadDocs(f);};
  $('ttCreateDocFolder').onclick=async()=>{const name=prompt('New document folder name');if(!name?.trim())return;try{await api(`/v1/projects/${encodeURIComponent(docProject)}/documents/folders`,'POST',{name:name.trim()});await loadDocs();say('ttDocStatus','Folder created: '+name.trim());}catch(e){say('ttDocStatus',e.message,true);}};
  $('ttDocFolderFilter').onchange=()=>{docFolder=$('ttDocFolderFilter').value;drawDocs();};$('ttDocSearch').oninput=()=>{docSearch=$('ttDocSearch').value;drawDocs();};$('ttDocRefresh').onclick=loadDocs;
  $('ttDocumentList').onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.dataset.docDownload)await fileAction(b.dataset.docDownload,'download');if(b.dataset.docPreview)await fileAction(b.dataset.docPreview,'preview');if(b.dataset.docDelete)await fileAction(b.dataset.docDelete,'delete');}catch(err){say('ttDocStatus',err.message,true);}};
- window.addEventListener('tt-enterprise-login',()=>refreshAll());window.addEventListener('tt-enterprise-logout',()=>{projects=[];events=[];invitations=[];unread=0;eventLatest=0;lastIdentity='';clearUI();});
+ window.addEventListener('tt-enterprise-login',()=>refreshAll());window.addEventListener('tt-enterprise-logout',()=>{projects=[];events=[];invitations=[];unread=0;eventLatest=0;lastIdentity='';dismissedEvents=new Set();dismissedIdentity='';clearUI();});
  window.addEventListener('tt-enterprise-project-open',()=>{const id=pid();if(id&&projects.some(p=>p.id===id)){shareProject=projects.find(p=>p.id===id&&p.access==='master')?.id||shareProject;seatProject=docProject=id;updateSelections();loadSeats();loadDocs();}});
  setInterval(()=>{if(authed()&&!document.hidden)loadEvents();},12000);
  // Refresh seat/project selectors regularly so newly shared or restricted projects

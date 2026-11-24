@@ -181,6 +181,23 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
 #enterpriseGate .et-role-control select{width:165px;max-width:100%;padding:9px!important;margin:0}
 #enterpriseGate .et-save-role{white-space:nowrap}
 @media(max-width:720px){#enterpriseGate .et-employee-actions{margin-left:0;justify-content:flex-start;width:100%}#enterpriseGate .et-role-control{flex:1 1 180px}#enterpriseGate .et-role-control select{width:100%}}
+</style><style id="tt-export-dialog-css">
+#ttKmzExportBackdrop{position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,.76);display:none;align-items:center;justify-content:center;padding:16px}
+#ttKmzExportBackdrop.open{display:flex}
+#ttKmzExportPanel{width:min(540px,96vw);max-height:min(86vh,740px);overflow:auto;background:#0b1016;border:1px solid #446073;border-radius:12px;box-shadow:0 24px 70px #000c;color:#e5f2f8;padding:18px;background-image:linear-gradient(130deg,rgba(18,26,30,.98),rgba(7,11,15,.97))}
+#ttKmzExportPanel h3{font-size:17px;letter-spacing:.5px;margin:0 0 5px;color:#f1f6f8}
+#ttKmzExportPanel .tt-export-hint{font-size:11px;color:#a1bac7;line-height:1.55;margin:0 0 10px}
+#ttKmzExportPanel .tt-export-group-title{font-size:10px;color:#68d8ee;font-weight:800;letter-spacing:1.2px;margin:15px 0 7px;text-transform:uppercase}
+#ttKmzExportPanel .tt-export-check{display:flex;align-items:flex-start;gap:10px;margin:3px 0;padding:9px 10px;border:1px solid #273c48;border-radius:7px;background:#121b23;font-size:12px;cursor:pointer}
+#ttKmzExportPanel .tt-export-check input{flex:none;width:16px;height:16px;margin:0;accent-color:#33bed4}
+#ttKmzExportPanel .tt-export-check span{flex:1;min-width:0;overflow-wrap:anywhere}
+#ttKmzExportPanel .tt-export-check small{color:#9bb1bd;font-size:10px}
+#ttKmzExportPanel #ttKmzCategoryList{max-height:188px;overflow-y:auto;overscroll-behavior:contain;padding-right:5px}
+#ttKmzExportPanel .tt-export-actions{display:flex;gap:8px;position:sticky;bottom:-18px;padding:14px 0 0;background:#0b1016;justify-content:flex-end}
+#ttKmzExportPanel .tt-export-actions .btn{width:auto;min-width:100px;text-align:center}
+#ttKmzExportPanel .tt-export-mini{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#ttKmzExportPanel .tt-export-mini .btn{padding:6px 9px;font-size:11px;width:auto}
+@media(max-width:520px){#ttKmzExportPanel{padding:12px;max-height:90vh}#ttKmzExportPanel .tt-export-actions{bottom:-12px}}
 </style></head><body><div id="map"></div><img id="ttLogoOverlay" alt="Project logo" hidden><header><button id="menuBtn" class="btn">☰ Commands</button><h1>TerraTrace <b>Field Software</b></h1><span class="tt-powered">Powered by Integrity Positions LLC</span><form id="ttLandownerSearchBar" role="search" autocomplete="off"><div class="tt-owner-search-controls"><input id="ttLandownerQuery" name="landowner" type="search" autocomplete="off" spellcheck="false" aria-label="Search landowner name" placeholder="Search landowner name…" minlength="2"><button id="ttLandownerGo" type="submit" aria-label="Find landowner" title="Search landowner">⌕ Search</button></div></form><div class="status" id="status">READY</div></header><div id="ttLandownerResults" class="tt-owner-results" role="listbox" aria-label="Landowner matches" hidden></div><aside class="drawer open" id="drawer"><section id="etDrawerProjects" hidden aria-label="Enterprise Cloud Projects">
   <details class="tt-section" open>
     <summary>ENTERPRISE CLOUD PROJECTS</summary>
@@ -233,7 +250,18 @@ header{border-bottom:1px solid #23282f!important;box-shadow:0 8px 24px rgba(0,0,
  <div class="flex"><button type="button" class="btn" id="ttMapSync">↑ Sync Custom Maps</button><button type="button" class="btn" id="ttMapRefresh">↻ Refresh Maps</button></div>
  <div class="note" id="ttMapStatus" role="status">Sign in to access company map layers.</div><div id="ttMapList" class="note"></div>
 </div>
-<label class="tt-internal-map-toggle"><input type="checkbox" id="showOriginal" checked> Original IFC CL (dashed)</label><label class="tt-internal-map-toggle"><input type="checkbox" id="showCad" checked> CAD / edited centerline</label><label class="tt-internal-map-toggle"><input type="checkbox" id="showRef" checked> Reference GIS</label><label class="tt-internal-map-toggle"><input type="checkbox" id="showAnnotations" checked> Arrow annotations</label><h2>EXPORT</h2><button class="btn primary" id="kmz">Export KMZ + imported GIS + photos</button><button class="btn primary" id="dxf">Export DXF (project CRS)</button><button class="btn primary" id="photoReport">▣ Export Photo Report — Pick CL First</button><p class="note">Projects are not automatically saved. Export ZIP backups to On My iPad for durable copies.</p></aside><div class="foot"><div class="chip" id="modeText">SELECT</div><div class="chip" id="measure">CL: —</div><div class="spacer"></div><button class="btn" id="closeMenu">Hide menu</button></div><div class="modalbg" id="modalbg"><div class="modal"><h3 id="modalTitle">Pin</h3><div id="modalBody"></div><div class="flex" style="margin-top:12px"><button class="btn" id="modalCancel">Close</button><button class="btn primary" id="modalOK">Save</button></div></div></div><input type="file" id="fileGISLibrary" multiple accept=".kml,.kmz,.geojson,.json,.zip" multiple hidden><input type="file" id="fileCL" accept=".csv,text/csv" hidden><input type="file" id="fileGIS" accept=".geojson,.json,.kml,.kmz,application/vnd.google-earth.kmz" hidden><input type="file" id="fileProject" accept=".json" hidden><input type="file" id="fileBackup" accept=".zip" hidden><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script><script src="https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
+<label class="tt-internal-map-toggle"><input type="checkbox" id="showOriginal" checked> Original IFC CL (dashed)</label><label class="tt-internal-map-toggle"><input type="checkbox" id="showCad" checked> CAD / edited centerline</label><label class="tt-internal-map-toggle"><input type="checkbox" id="showRef" checked> Reference GIS</label><label class="tt-internal-map-toggle"><input type="checkbox" id="showAnnotations" checked> Arrow annotations</label><h2>EXPORT</h2><button class="btn primary" id="kmz">Export KMZ · Choose Layers</button><button class="btn primary" id="dxf">Export DXF · Project Coordinates</button><div class="note">Uses the selected project CRS (for example EPSG:2276 = TX83-NCF). Set the matching coordinate system in Civil 3D using MAPCSASSIGN.</div><button class="btn primary" id="photoReport">▣ Export Photo Report — Pick CL First</button><p class="note">Projects are not automatically saved. Export ZIP backups to On My iPad for durable copies.</p></aside><div class="foot"><div class="chip" id="modeText">SELECT</div><div class="chip" id="measure">CL: —</div><div class="spacer"></div><button class="btn" id="closeMenu">Hide menu</button></div><div class="modalbg" id="modalbg"><div class="modal"><h3 id="modalTitle">Pin</h3><div id="modalBody"></div><div class="flex" style="margin-top:12px"><button class="btn" id="modalCancel">Close</button><button class="btn primary" id="modalOK">Save</button></div></div></div><div id="ttKmzExportBackdrop" role="presentation">
+  <div id="ttKmzExportPanel" role="dialog" aria-modal="true" aria-labelledby="ttKmzExportHeading" tabindex="-1">
+    <h3 id="ttKmzExportHeading">EXPORT KMZ · SELECT LAYERS</h3>
+    <p class="tt-export-hint">Choose exactly what goes into your KMZ. Each geometry type and GIS category becomes its own Google Earth folder.</p>
+    <div class="tt-export-group-title">Project drawing</div>
+    <div id="ttKmzMainChecks"></div>
+    <div class="tt-export-mini"><div class="tt-export-group-title">Imported GIS categories</div><div><button type="button" class="btn" id="ttKmzSelectAll">All</button> <button type="button" class="btn" id="ttKmzSelectNone">None</button></div></div>
+    <div id="ttKmzCategoryList"></div>
+    <div id="ttKmzSelectionInfo" class="tt-export-hint" aria-live="polite" style="margin-top:10px"></div>
+    <div class="tt-export-actions"><button class="btn" type="button" id="ttKmzExportCancel">Cancel</button><button class="btn primary" type="button" id="ttKmzExportConfirm">Export Selected KMZ</button></div>
+  </div>
+</div><input type="file" id="fileGISLibrary" multiple accept=".kml,.kmz,.geojson,.json,.zip" multiple hidden><input type="file" id="fileCL" accept=".csv,text/csv" hidden><input type="file" id="fileGIS" accept=".geojson,.json,.kml,.kmz,application/vnd.google-earth.kmz" hidden><input type="file" id="fileProject" accept=".json" hidden><input type="file" id="fileBackup" accept=".zip" hidden><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script><script src="https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script><script>
 (()=>{'use strict';let kmzSelectedCL=null,kmzPILayer=null,stationingSelection=null;const $=id=>document.getElementById(id);const state={projectName:'Untitled Project',crs:'',cl:[],original:[],points:[],photos:[],lines:[],reference:[],gisLibrary:[],annotations:[],stationEquations:[],stationingOverlay:null,stationingVisible:true,dimensions:[],ownershipTracts:{},ownershipRows:[],ownershipRoute:null,tractFolders:{},tractDocuments:{},googleTractFolders:{},tractNotes:{},buildSheets:{},ownershipSettings:{},annotationStart:null,dimensionStart:[],mode:'select',history:[],drawing:[],inverse:[],counter:1,selectedLine:null,trimTarget:null};let map,base,originalLayer,clLayer,vertexLayer,pointLayer,photoLayer,lineLayer,refLayer,stationLayer,drawLayer,gpsLayer,annotationLayer;let gpsWatch=null,gpsMarker=null,gpsCircle=null,gpsLast=null;const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const status=s=>$('status').textContent=s;const download=(name,blob)=>{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)};const icon=(cls)=>L.divIcon({className:'',html:`<div class="${cls}"></div>`,iconSize:[17,17],iconAnchor:[8,8]});const EPSG_DEFS={2257:"+proj=tmerc +lat_0=31 +lon_0=-104.333333333333 +k=0.999909091 +x_0=165000 +y_0=0 +datum=NAD83 +units=us-ft +no_defs +type=crs",2258:"+proj=tmerc +lat_0=31 +lon_0=-106.25 +k=0.9999 +x_0=500000.0001016 +y_0=0 +datum=NAD83 +units=us-ft +no_defs +type=crs",2259:"+proj=tmerc +lat_0=31 +lon_0=-107.833333333333 +k=0.999916667 +x_0=830000.0001016 +y_0=0 +datum=NAD83 +units=us-ft +no_defs +type=crs",2275:"+proj=lcc +lat_0=34 +lon_0=-101.5 +lat_1=36.1833333333333 +lat_2=34.65 +x_0=200000.0001016 +y_0=999999.9998984 +datum=NAD83 +units=us-ft +no_defs +type=crs",2276:"+proj=lcc +lat_0=31.6666666666667 +lon_0=-98.5 +lat_1=33.9666666666667 +lat_2=32.1333333333333 +x_0=600000 +y_0=2000000.0001016 +datum=NAD83 +units=us-ft +no_defs +type=crs",2277:"+proj=lcc +lat_0=29.6666666666667 +lon_0=-100.333333333333 +lat_1=31.8833333333333 +lat_2=30.1166666666667 +x_0=699999.9998984 +y_0=3000000 +datum=NAD83 +units=us-ft +no_defs +type=crs",2278:"+proj=lcc +lat_0=27.8333333333333 +lon_0=-99 +lat_1=30.2833333333333 +lat_2=28.3833333333333 +x_0=600000 +y_0=3999999.9998984 +datum=NAD83 +units=us-ft +no_defs +type=crs",2279:"+proj=lcc +lat_0=25.6666666666667 +lon_0=-98.5 +lat_1=27.8333333333333 +lat_2=26.1666666666667 +x_0=300000 +y_0=5000000.0001016 +datum=NAD83 +units=us-ft +no_defs +type=crs",26913:"+proj=utm +zone=13 +datum=NAD83 +units=m +no_defs +type=crs",26914:"+proj=utm +zone=14 +datum=NAD83 +units=m +no_defs +type=crs",32112:"+proj=tmerc +lat_0=31 +lon_0=-104.333333333333 +k=0.999909091 +x_0=165000 +y_0=0 +datum=NAD83 +units=m +no_defs +type=crs",32140:"+proj=lcc +lat_0=27.8333333333333 +lon_0=-99 +lat_1=30.2833333333333 +lat_2=28.3833333333333 +x_0=600000 +y_0=4000000 +datum=NAD83 +units=m +no_defs +type=crs"};const WGS='EPSG:4326';const validCRS=()=>{if(!state.crs)throw Error('Set the verified project CRS before using Northing/Easting or DXF.')};const toLL=(p)=>{validCRS();const [lon,lat]=proj4(state.crs,WGS,[p.e,p.n]);if(!isFinite(lon)||!isFinite(lat)||Math.abs(lat)>90||Math.abs(lon)>180)throw Error('Coordinate conversion failed; check CRS and units.');return [lat,lon]};const toXY=(ll)=>{validCRS();const [e,n]=proj4(WGS,state.crs,[ll.lng,ll.lat]);return {e,n}};const ll=p=>[p.lat,p.lon];const coords=p=>p.e!==undefined?toLL(p):[p.lat,p.lon];const distance=(a,b)=>Math.hypot(a.e-b.e,a.n-b.n);const length=pts=>pts.slice(1).reduce((s,p,i)=>s+distance(p,pts[i]),0);const sta=x=>`${Math.floor(x/100)}+${(x%100).toFixed(2).padStart(5,'0')}`;const UNDO_LIMIT=100;const undoSnapshot=()=>JSON.stringify({cl:state.cl,original:state.original,points:state.points,photos:state.photos,lines:state.lines,reference:state.reference,annotations:state.annotations,dimensions:state.dimensions,stationEquations:state.stationEquations,stationingOverlay:state.stationingOverlay,counter:state.counter});const remember=()=>{const snap=undoSnapshot();if(state.history[state.history.length-1]===snap)return;state.history.push(snap);if(state.history.length>UNDO_LIMIT)state.history.shift();updateUndoButton()};function updateUndoButton(){const b=$('undo');if(!b)return;b.textContent='↶ Undo edit'+(state.history.length?' ('+state.history.length+' available)':'');b.disabled=!state.history.length;};// IndexedDB stores full project snapshots, including photo data, without localStorage's small quota.
  const memoryProjects=new Map();let saveSequence=0;
  async function dbSet(k,v){memoryProjects.set(k,structuredClone(v))}
@@ -292,7 +320,7 @@ function init(){map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([
  mapEl.addEventListener('touchstart',e=>{if(state.mode==='dimension'&&state.dimensionStart.length===2){dimensionTouchMoved=false;map.dragging.disable()}},{passive:true});
  mapEl.addEventListener('touchmove',e=>{if(state.mode==='dimension'&&state.dimensionStart.length===2&&e.touches.length===1){dimensionTouchMoved=true;const t=e.touches[0],r=mapEl.getBoundingClientRect();dimensionMove(map.containerPointToLatLng([t.clientX-r.left,t.clientY-r.top]));e.preventDefault()}},{passive:false});
  mapEl.addEventListener('touchend',e=>{if(state.mode==='dimension'&&state.dimensionStart.length===2&&dimensionTouchMoved){e.preventDefault();dimensionFinish();dimensionIgnoreClickUntil=Date.now()+450;dimensionTouchMoved=false;map.dragging.enable()}},{passive:false});
-map.on('zoomend',render);$('newProject').onclick=()=>{const name=prompt('New project name');if(!name?.trim())return;const n=name.trim();if(projectNames().includes(n))return alert('Project name already exists');if(!saveCurrent())return;Object.assign(state,{projectName:n,crs:'',cl:[],original:[],points:[],photos:[],lines:[],reference:[],gisLibrary:[],annotations:[],stationEquations:[],stationingOverlay:null,stationingVisible:true,dimensions:[],ownershipTracts:{},ownershipRows:[],ownershipRoute:null,tractFolders:{},tractDocuments:{},googleTractFolders:{},tractNotes:{},buildSheets:{},ownershipSettings:{},annotationStart:null,dimensionStart:[],counter:1,history:[],drawing:[],inverse:[],selectedLine:null,trimTarget:null});stationingSelection=null;$('stationingStart').value='0+00';$('showStationing').checked=true;$('proj').value='';$('epsg').value='';render();saveCurrent()};$('openLocalProject').onclick=()=>{const n=$('projectSelect').value;if(!n){$('fileProject').click();return;}saveCurrent();loadNamed(n)};$('saveLocalProject').onclick=()=>download(state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_TerraTrace.json',new Blob([JSON.stringify(projectSnapshot(),null,2)],{type:'application/json'}));$('renameProject').onclick=async()=>{const old=state.projectName,n=prompt('Rename project',old)?.trim();if(!n||n===old)return;if(projectNames().includes(n))return alert('Name already exists');try{const data=await dbGet(old)||projectSnapshot();data.projectName=n;await dbSet(n,data);await dbDelete(old);state.projectName=n;await refreshProjects();status('Renamed '+old+' to '+n);}catch(e){alert(e.message)}};$('deleteProject').onclick=async()=>{const n=$('projectSelect').value;if(!n||!confirm('Delete local project '+n+'? Export a ZIP backup first.'))return;try{await dbDelete(n);await refreshProjects();const names=projectNames();if(names.length)await loadNamed(names[0]);else{Object.assign(state,{projectName:'Untitled Project',crs:'',cl:[],original:[],points:[],photos:[],lines:[],reference:[],gisLibrary:[],annotations:[],stationEquations:[],stationingOverlay:null,stationingVisible:true,dimensions:[],ownershipTracts:{},ownershipRows:[],ownershipRoute:null,tractFolders:{},tractDocuments:{},googleTractFolders:{},tractNotes:{},buildSheets:{},ownershipSettings:{},annotationStart:null,dimensionStart:[],counter:1,history:[]});render();saveCurrent()}}catch(e){alert(e.message)}};$('menuBtn').onclick=()=>toggle();$('closeMenu').onclick=()=>toggle(false);$('epsg').onchange=()=>{const def=EPSG_DEFS[$('epsg').value];if(def){$('proj').value=def;try{proj4(def,WGS,[0,0]);state.crs=def;render();persist();status('EPSG:'+ $('epsg').value+' selected')}catch(e){alert(e.message)}}};$('saveCrs').onclick=()=>{try{const v=$('proj').value.trim();if(!v)throw Error('Enter a PROJ4 definition.');proj4(v,WGS,[0,0]);state.crs=v;render();persist();status('CRS applied')}catch(e){alert(e.message)}};$('gps').onclick=toggleGPS;$('gpsCenter').onclick=()=>{if(gpsLast)map.setView(gpsLast,Math.max(map.getZoom(),17));else status('Start GPS and wait for a location fix')};setupGISUI();$('loadCL').onclick=()=>$('fileCL').click();$('loadProject').onclick=()=>$('fileProject').click();$('fileCL').onchange=e=>importCL(e.target.files[0]);$('fileGIS').onchange=e=>importGIS(e.target.files[0]);$('fileProject').onchange=async e=>{try{await openProject(e.target.files[0])}finally{e.target.value=''}};$('saveProject').onclick=()=>download((state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_TerraTrace_Field_Software.json'),new Blob([JSON.stringify(projectSnapshot(),null,2)],{type:'application/json'}));$('fetchGeo').onclick=async()=>{try{const r=await fetch($('geoUrl').value);if(!r.ok)throw Error('HTTP '+r.status);addGeoJSON(await r.json());status('GeoJSON loaded')}catch(e){alert('Could not load URL: '+e.message+' (check CORS and permissions)')}};document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));$('finishLine').onclick=finishLine;$('finishIntersectLines').onclick=ttFinishIntersect;updateUndoButton();$('undo').onclick=()=>{if(!state.history.length){status('No earlier edits to undo');return;}const previous=JSON.parse(state.history.pop());for(const key of Object.keys(previous))state[key]=previous[key];kmzSelectedCL=null;state.selectedLine=null;state.trimTarget=null;state.drawing=[];render();persist();updateUndoButton();status('Edit undone — '+state.history.length+' earlier edit(s) available');};$('resetCL').onclick=()=>{if(!confirm('Restore original CL geometry?'))return;remember();state.cl=structuredClone(state.original);state.stationEquations=[];render();persist()};$('showOriginal').onchange=render;$('showCad').onchange=render;$('showVertices').onchange=()=>render();$('showRef').onchange=render;$('showAnnotations').onchange=render;$('keyinPoint').onclick=keyInSurveyPoint;$('photoReport').onclick=()=>beginPhotoReportPick('html');$('kmz').onclick=exportKMZ;$('dxf').onclick=exportDXF;$('exportSelectedKmzCL').onclick=exportSelectedKMZCL;$('exportCADPointsCSV').onclick=beginCADPointsCSVExport;$('kmzBendSummary').onclick=showKMZBendSummary;$('showStationing').onchange=()=>{state.stationingVisible=$('showStationing').checked;render();persist()};$('setStationing').onclick=()=>setMapStationing(false);$('redoStationing').onclick=()=>setMapStationing(true);$('addEquation').onclick=()=>editStationEquation();$('manageEquations').onclick=manageStationEquations;$('modalCancel').onclick=()=>{closeModal();$('modalOK').style.display='';};setMode('select')};function toggle(v){$('drawer').classList.toggle('open',v===undefined?!$('drawer').classList.contains('open'):v)}function setMode(m){ttClearIntersectSelection();cadOperation=null;if(ttRubberBand){map.removeLayer(ttRubberBand);ttRubberBand=null}state.mode=m;if(gisPreview)gisPreview.clearLayers();gisArea=[];gisRoute=null;state.inverse=[];state.selectedLine=null;ttOffsetSelection=null;ttDrawCursor=null;state.trimTarget=null;state.annotationStart=null;state.dimensionStart=[];dimensionPreview=null;if(map)map.dragging.enable();document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));$('modeText').textContent=m.toUpperCase();status(m==='exportSurveyVertices'?'Tap the line to export ALL its vertices to CSV':m==='photoReportPick'?'Tap the imported KMZ/KML line near the START end to generate photo report with stations':m==='exportKmzCL'?'Tap a line imported from KMZ/KML to display its PI vertices and export coordinates':m==='delete'?'Tap a CAD point, photo pin, line or vertex to delete':m==='addVertex'?'Tap an imported KMZ/KML line or the edited centerline to insert a vertex':m==='editLine'?'Tap a CAD line or centerline segment to insert a vertex; switch to Select to drag it':m==='stationEquation'?'Tap a centerline vertex to enter BACK and AHEAD stations':m==='dimension'?'Tap first point, second point, then tap where to place the dimension line':m==='annotation'?'Tap the arrow tip (target), then tap where its text should appear':m==='photo'?'Tap map to place a photo pin':m==='gisPickLine'?'Tap any part of a KMZ or CAD line; its FULL length will be buffered':m==='gisPickArea'?'Tap ONE map position to search a circle at your entered buffer radius':m==='inverse'?'Tap first position on any line or map, then tap second position to calculate distance and bearing':m==='intersectLines'?'INTERSECT: tap a segment on the first CAD/KMZ line, then tap the second. Endpoints meet at the corner. Finish to exit':m==='offset'?'Tap a CAD/KMZ segment between two vertices, then tap the offset side':m==='trim'?'TRIM: Tap the cutting line first, then tap the section of another line to remove':m==='draw'?'Pick starting point, move pointer to preview next segment, tap to place; Finish Polyline':m.toUpperCase());render()}
+map.on('zoomend',render);$('newProject').onclick=()=>{const name=prompt('New project name');if(!name?.trim())return;const n=name.trim();if(projectNames().includes(n))return alert('Project name already exists');if(!saveCurrent())return;Object.assign(state,{projectName:n,crs:'',cl:[],original:[],points:[],photos:[],lines:[],reference:[],gisLibrary:[],annotations:[],stationEquations:[],stationingOverlay:null,stationingVisible:true,dimensions:[],ownershipTracts:{},ownershipRows:[],ownershipRoute:null,tractFolders:{},tractDocuments:{},googleTractFolders:{},tractNotes:{},buildSheets:{},ownershipSettings:{},annotationStart:null,dimensionStart:[],counter:1,history:[],drawing:[],inverse:[],selectedLine:null,trimTarget:null});stationingSelection=null;$('stationingStart').value='0+00';$('showStationing').checked=true;$('proj').value='';$('epsg').value='';render();saveCurrent()};$('openLocalProject').onclick=()=>{const n=$('projectSelect').value;if(!n){$('fileProject').click();return;}saveCurrent();loadNamed(n)};$('saveLocalProject').onclick=()=>download(state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_TerraTrace.json',new Blob([JSON.stringify(projectSnapshot(),null,2)],{type:'application/json'}));$('renameProject').onclick=async()=>{const old=state.projectName,n=prompt('Rename project',old)?.trim();if(!n||n===old)return;if(projectNames().includes(n))return alert('Name already exists');try{const data=await dbGet(old)||projectSnapshot();data.projectName=n;await dbSet(n,data);await dbDelete(old);state.projectName=n;await refreshProjects();status('Renamed '+old+' to '+n);}catch(e){alert(e.message)}};$('deleteProject').onclick=async()=>{const n=$('projectSelect').value;if(!n||!confirm('Delete local project '+n+'? Export a ZIP backup first.'))return;try{await dbDelete(n);await refreshProjects();const names=projectNames();if(names.length)await loadNamed(names[0]);else{Object.assign(state,{projectName:'Untitled Project',crs:'',cl:[],original:[],points:[],photos:[],lines:[],reference:[],gisLibrary:[],annotations:[],stationEquations:[],stationingOverlay:null,stationingVisible:true,dimensions:[],ownershipTracts:{},ownershipRows:[],ownershipRoute:null,tractFolders:{},tractDocuments:{},googleTractFolders:{},tractNotes:{},buildSheets:{},ownershipSettings:{},annotationStart:null,dimensionStart:[],counter:1,history:[]});render();saveCurrent()}}catch(e){alert(e.message)}};$('menuBtn').onclick=()=>toggle();$('closeMenu').onclick=()=>toggle(false);$('epsg').onchange=()=>{const def=EPSG_DEFS[$('epsg').value];if(def){$('proj').value=def;try{proj4(def,WGS,[0,0]);state.crs=def;render();persist();status('EPSG:'+ $('epsg').value+' selected')}catch(e){alert(e.message)}}};$('saveCrs').onclick=()=>{try{const v=$('proj').value.trim();if(!v)throw Error('Enter a PROJ4 definition.');proj4(v,WGS,[0,0]);state.crs=v;render();persist();status('CRS applied')}catch(e){alert(e.message)}};$('gps').onclick=toggleGPS;$('gpsCenter').onclick=()=>{if(gpsLast)map.setView(gpsLast,Math.max(map.getZoom(),17));else status('Start GPS and wait for a location fix')};setupGISUI();$('loadCL').onclick=()=>$('fileCL').click();$('loadProject').onclick=()=>$('fileProject').click();$('fileCL').onchange=e=>importCL(e.target.files[0]);$('fileGIS').onchange=e=>importGIS(e.target.files[0]);$('fileProject').onchange=async e=>{try{await openProject(e.target.files[0])}finally{e.target.value=''}};$('saveProject').onclick=()=>download((state.projectName.replace(/[^a-z0-9_-]/gi,'_')+'_TerraTrace_Field_Software.json'),new Blob([JSON.stringify(projectSnapshot(),null,2)],{type:'application/json'}));$('fetchGeo').onclick=async()=>{try{const r=await fetch($('geoUrl').value);if(!r.ok)throw Error('HTTP '+r.status);addGeoJSON(await r.json());status('GeoJSON loaded')}catch(e){alert('Could not load URL: '+e.message+' (check CORS and permissions)')}};document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));$('finishLine').onclick=finishLine;$('finishIntersectLines').onclick=ttFinishIntersect;updateUndoButton();$('undo').onclick=()=>{if(!state.history.length){status('No earlier edits to undo');return;}const previous=JSON.parse(state.history.pop());for(const key of Object.keys(previous))state[key]=previous[key];kmzSelectedCL=null;state.selectedLine=null;state.trimTarget=null;state.drawing=[];render();persist();updateUndoButton();status('Edit undone — '+state.history.length+' earlier edit(s) available');};$('resetCL').onclick=()=>{if(!confirm('Restore original CL geometry?'))return;remember();state.cl=structuredClone(state.original);state.stationEquations=[];render();persist()};$('showOriginal').onchange=render;$('showCad').onchange=render;$('showVertices').onchange=()=>render();$('showRef').onchange=render;$('showAnnotations').onchange=render;$('keyinPoint').onclick=keyInSurveyPoint;$('photoReport').onclick=()=>beginPhotoReportPick('html');$('kmz').onclick=openKmzExportDialog;$('dxf').onclick=exportDXF;$('exportSelectedKmzCL').onclick=exportSelectedKMZCL;$('exportCADPointsCSV').onclick=beginCADPointsCSVExport;$('kmzBendSummary').onclick=showKMZBendSummary;$('showStationing').onchange=()=>{state.stationingVisible=$('showStationing').checked;render();persist()};$('setStationing').onclick=()=>setMapStationing(false);$('redoStationing').onclick=()=>setMapStationing(true);$('addEquation').onclick=()=>editStationEquation();$('manageEquations').onclick=manageStationEquations;$('modalCancel').onclick=()=>{closeModal();$('modalOK').style.display='';};setMode('select')};function toggle(v){$('drawer').classList.toggle('open',v===undefined?!$('drawer').classList.contains('open'):v)}function setMode(m){ttClearIntersectSelection();cadOperation=null;if(ttRubberBand){map.removeLayer(ttRubberBand);ttRubberBand=null}state.mode=m;if(gisPreview)gisPreview.clearLayers();gisArea=[];gisRoute=null;state.inverse=[];state.selectedLine=null;ttOffsetSelection=null;ttDrawCursor=null;state.trimTarget=null;state.annotationStart=null;state.dimensionStart=[];dimensionPreview=null;if(map)map.dragging.enable();document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===m));$('modeText').textContent=m.toUpperCase();status(m==='exportSurveyVertices'?'Tap the line to export ALL its vertices to CSV':m==='photoReportPick'?'Tap the imported KMZ/KML line near the START end to generate photo report with stations':m==='exportKmzCL'?'Tap a line imported from KMZ/KML to display its PI vertices and export coordinates':m==='delete'?'Tap a CAD point, photo pin, line or vertex to delete':m==='addVertex'?'Tap an imported KMZ/KML line or the edited centerline to insert a vertex':m==='editLine'?'Tap a CAD line or centerline segment to insert a vertex; switch to Select to drag it':m==='stationEquation'?'Tap a centerline vertex to enter BACK and AHEAD stations':m==='dimension'?'Tap first point, second point, then tap where to place the dimension line':m==='annotation'?'Tap the arrow tip (target), then tap where its text should appear':m==='photo'?'Tap map to place a photo pin':m==='gisPickLine'?'Tap any part of a KMZ or CAD line; its FULL length will be buffered':m==='gisPickArea'?'Tap ONE map position to search a circle at your entered buffer radius':m==='inverse'?'Tap first position on any line or map, then tap second position to calculate distance and bearing':m==='intersectLines'?'INTERSECT: tap a segment on the first CAD/KMZ line, then tap the second. Endpoints meet at the corner. Finish to exit':m==='offset'?'Tap a CAD/KMZ segment between two vertices, then tap the offset side':m==='trim'?'TRIM: Tap the cutting line first, then tap the section of another line to remove':m==='draw'?'Pick starting point, move pointer to preview next segment, tap to place; Finish Polyline':m.toUpperCase());render()}
 function deleteItem(kind,i,j){if(!confirm('Delete '+kind+'?'))return;remember();if(kind==='CL vertex'){if(state.cl.length<=2)return alert('A centerline needs at least two vertices');state.cl.splice(i,1);state.stationEquations=(state.stationEquations||[]).filter(x=>x.vertex!==i).map(x=>({...x,vertex:x.vertex>i?x.vertex-1:x.vertex}))}else if(kind==='line vertex'){if(state.lines[i].length<=2)return alert('A polyline needs at least two vertices. Delete the line instead.');state.lines[i].splice(j,1)}else if(kind==='CAD line')state.lines.splice(i,1);else if(kind==='CAD point')state.points.splice(i,1);else if(kind==='photo pin')state.photos.splice(i,1);else if(kind==='annotation')state.annotations.splice(i,1);else if(kind==='dimension')state.dimensions.splice(i,1);render();persist()}
 
 function setupImportedLayersUI(){
@@ -1267,10 +1295,99 @@ async function importGIS(file){if(!file)return;try{let text=await file.text();if
  }catch(e){alert('Could not open project: '+e.message)}
 }
 function xml(s){return esc(s)};function placemark(name,geom,desc=''){return `<Placemark><name>${xml(name)}</name>${desc?`<description><![CDATA[${desc.replace(/]]>/g,'] ]>')}]]></description>`:''}${geom}</Placemark>`};function pointKml(p){const [lat,lon]=coords(p);return `<Point><coordinates>${lon},${lat},0</coordinates></Point>`};function lineKml(pts){return `<LineString><tessellate>1</tessellate><coordinates>${pts.map(p=>{const [lat,lon]=coords(p);return `${lon},${lat},0`}).join(' ')}</coordinates></LineString>`};const KMZ_CIRCLE_PNG={"clVertex":"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAkElEQVR4nGNgGAUEACMxiiQUdf5jE39x/wpB/XgV4DKYFItwSiAb/mCfJVY1Ck7HCVrCRK7h6HK4fIthAbGGE2sJVh8QazgxalEsgLmAFMPRLUH3BU4fUAuMWjDILIDlRuQcSiyA6UHP0Th9QIol+NRiWIDsAmIsIVQeYfUBsZYQU9gNXHFNjEXEVDijgCAAAHneRyD9bXbSAAAAAElFTkSuQmCC","cadVertex":"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAkElEQVR4nGNgGAUEACMxiiQUdf5jE39x/wpB/XgV4DKYFItwSiAb/mCfJVY1Ck7HCVrCRK7h6HK4fIthAbGGE2sJVh8QazgxalEsgLmAFMPRLUH3BU4fUAuMWjDILIDlRuQcSiyA6UHP0Th9QIol+NRiWIDsAmIsIVQeYfUBsZYQU9gNXHFNjEXEVDijgCAAAHneRyD9bXbSAAAAAElFTkSuQmCC","cadPoint":"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAkElEQVR4nGNgGAUEACMxiiQUdf5jE39x/wpB/XgV4DKYFItwSiAbzr3tOFY1X70sCVrCRK7h6HK4fIthAbGGE2sJVh8QazgxalEsgLmAFMPRLUH3BU4fUAuMWjDILIDlRuQcSiyA6UHP0Th9QIol+NRiWIDsAmIsIVQeYfUBsZYQU9gNXHFNjEXEVDijgCAAAAbGRyAfWBkpAAAAAElFTkSuQmCC","photoPoint":"iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAkElEQVR4nGNgGAUEACMxiiQUdf5jE39x/wpB/XgV4DKYFItwSiAb/ny6AlY1kpkPCFrCRK7h6HK4fIthAbGGE2sJVh8QazgxalEsgLmAFMPRLUH3BU4fUAuMWjDILIDlRuQcSiyA6UHP0Th9QIol+NRiWIDsAmIsIVQeYfUBsZYQU9gNXHFNjEXEVDijgCAAAGEkRyCJv5AOAAAAAElFTkSuQmCC"};
-async function kmlSafeName(value){return xml(String(value??''))}
-async function exportKMZ(){
+function kmlSafeName(value){return xml(String(value??''))}
+function ttKmzCategoryForFeature(ref,feature){
+ const prop=feature?.properties||{};
+ const info=String(prop._category||prop._gisCategory||prop._kmzLayer||prop._layer||ref._sourceName||ref.name||'');
+ if(ref._ownershipSearch||/\b(?:land[ _-]*parcel|parcel|landowner|tract|ownership|property[ _-]*line)s?\b/i.test(info))return 'Land Parcels';
+ if(/pipelines?|gas[ _-]*line|oil[ _-]*line|midstream|flowline/i.test(info))return 'Pipelines';
+ if(/electric|power[ _-]*line|transmission|substation/i.test(info))return 'Electric / Powerlines';
+ if(/road|street|highway|interstate|transportation/i.test(info))return 'Roads / Highways';
+ if(/rail|railroad|railway/i.test(info))return 'Railroads';
+ if(/water|river|creek|stream|hydro|pond|lake/i.test(info))return 'Water / Hydrology';
+ if(/utility|utilities|fiber|telecom|communication/i.test(info))return 'Other Utilities';
+ if(/easement|right[ -]of[ -]way|\brow\b/i.test(info))return 'Easements / ROW';
+ if(/\.km[zl]$/i.test(String(ref._sourceName||'')))return 'Imported KML / KMZ';
+ if(ref._terraGISSearch)return 'Other GIS';
+ return 'Other Imported Layers';
+}
+function ttKmzExportGroups(){
+ const groups=new Map();
+ for(let i=0;i<(state.reference||[]).length;i++){
+  const ref=state.reference[i];
+  if(!ref)continue;
+  const features=ref.type==='FeatureCollection'?(ref.features||[]):ref.type==='Feature'?[ref]:ref.geometry?[{type:'Feature',geometry:ref,properties:{}}]:[];
+  for(const feature of features){
+   if(!feature?.geometry)continue;
+   const category=ttKmzCategoryForFeature(ref,feature),p=feature.properties||{};
+   let origin=String(ref._terraGISSearch?(p._source||p._layer||ref._sourceName||'GIS Data Hub'):(ref._sourceName||p._source||`Imported Layer ${i+1}`));
+   if(!ref._terraGISSearch&&p._kmzLayer)origin+=' / '+String(p._kmzLayer);
+   origin=origin.trim().slice(0,180)||'Imported Layer';
+   if(!groups.has(category))groups.set(category,new Map());
+   const group=groups.get(category);
+   if(!group.has(origin))group.set(origin,[]);
+   group.get(origin).push(feature);
+  }
+ }
+ return [...groups].sort(([a],[b])=>a.localeCompare(b)).map(([name,sources])=>({name,sources:[...sources].map(([source,features])=>({source,features})),count:[...sources.values()].reduce((n,a)=>n+a.length,0)}));
+}
+const TT_KMZ_OPTIONS=[
+ ['centerlines','Centerlines','Original IFC and edited CL'],
+ ['cadLines','Drawn CAD lines','User-created polylines'],
+ ['vertices','CAD / CL vertices','Small point markers'],
+ ['annotations','Arrow annotations','With readable image labels'],
+ ['dimensions','Dimension annotations','Lines and distance labels'],
+ ['cadPoints','CAD points','Named survey points'],
+ ['photos','Photo pins','Embed attached images'],
+ ['stationing','Stationing labels','Existing station labels from selected line']
+];
+function openKmzExportDialog(){
+ const backdrop=$('ttKmzExportBackdrop'),main=$('ttKmzMainChecks'),gis=$('ttKmzCategoryList'),groups=ttKmzExportGroups();
+ main.replaceChildren();gis.replaceChildren();
+ function checkbox(target,name,title,detail,checked){
+  const row=document.createElement('label');row.className='tt-export-check';
+  const input=document.createElement('input');input.type='checkbox';input.checked=checked;input.value=name;
+  const label=document.createElement('span');label.textContent=title;
+  if(detail){const small=document.createElement('small');small.textContent=' · '+detail;label.append(small)}
+  row.append(input,label);target.append(row);return input;
+ }
+ for(const [id,title,detail] of TT_KMZ_OPTIONS){
+  const has= id==='centerlines'?(state.original?.length>1||state.cl?.length>1):
+   id==='cadLines'?(state.lines||[]).some(x=>x?.length>1):id==='vertices'?(state.cl?.length||state.lines?.some(x=>x.length)):
+   id==='annotations'?!!state.annotations?.length:id==='dimensions'?!!state.dimensions?.length:
+   id==='cadPoints'?!!state.points?.length:id==='photos'?!!state.photos?.length:!!state.stationingOverlay?.labels?.length;
+  const rowInput=checkbox(main,id,title,has?detail:'No items currently',!!has && (id!=='stationing'||$('showStationing')?.checked));
+  rowInput.dataset.ttExportOption=id;
+  if(!has){rowInput.disabled=true;rowInput.closest('label').style.opacity='.62'}
+ }
+ if(!groups.length){const empty=document.createElement('p');empty.className='tt-export-hint';empty.textContent='No imported GIS or KML/KMZ features in this project.';gis.append(empty)}
+ for(const group of groups){
+  const checked=checkbox(gis,group.name,group.name,group.count.toLocaleString()+' features',true);
+  checked.dataset.ttExportCategory=group.name;
+ }
+ const all=()=>[...backdrop.querySelectorAll('input[type=checkbox]:not(:disabled)')];
+ const update=()=>{$('ttKmzSelectionInfo').textContent=`${all().filter(el=>el.checked).length} export groups selected · KMZ keeps each chosen category and source in its own folder.`};
+ all().forEach(c=>c.addEventListener('change',update));update();
+ $('ttKmzSelectAll').onclick=()=>{all().forEach(c=>c.checked=true);update()};
+ $('ttKmzSelectNone').onclick=()=>{all().forEach(c=>c.checked=false);update()};
+ const close=()=>{backdrop.classList.remove('open');document.removeEventListener('keydown',onKey)};
+ const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close()}};
+ $('ttKmzExportCancel').onclick=close;
+ backdrop.onclick=e=>{if(e.target===backdrop)close()};
+ $('ttKmzExportConfirm').onclick=async()=>{
+  const picked={};for(const input of main.querySelectorAll('input'))picked[input.dataset.ttExportOption]=input.checked;
+  picked.categories=new Set([...gis.querySelectorAll('input:checked')].map(el=>el.dataset.ttExportCategory));
+  if(!Object.values(picked).some(v=>v===true)&&!picked.categories.size){alert('Select at least one layer to export.');return}
+  const b=$('ttKmzExportConfirm');b.disabled=true;b.textContent='Building KMZ…';
+  try{if(await exportKMZ(picked))close()}finally{b.disabled=false;b.textContent='Export Selected KMZ'}
+ };
+ backdrop.classList.add('open');$('ttKmzExportPanel').focus();
+ document.addEventListener('keydown',onKey);
+}
+async function exportKMZ(selection){
  try{
-  validCRS();
+  if(!selection)throw Error('Open the KMZ export options first.');
+  if((selection.centerlines&&(state.original?.length||state.cl?.length))||(selection.cadLines&&state.lines?.length)||(selection.vertices&&(state.cl?.length||state.lines?.length))||(selection.cadPoints&&state.points?.length)||(selection.photos&&state.photos?.length)||(selection.annotations&&state.annotations?.length)||(selection.dimensions&&state.dimensions?.length))validCRS();
   const zip=new JSZip();
   // Export is read-only: no geometry, markers, layers, or project storage are modified.
   const icons=[['clVertex','#f8df65'],['cadVertex','#f8df65'],['cadPoint','#23d7f3'],['photoPoint','#ffb84c']];
@@ -1290,14 +1407,15 @@ async function exportKMZ(){
   const addPoint=(name,p,style,description='')=>{
    parts.push(`<Placemark><name>${kmlSafeName(name)}</name><styleUrl>#${style}</styleUrl>${description?'<description><![CDATA['+description.replace(/]]>/g,'] ]>')+']]></description>':''}${pointKml(p)}</Placemark>`);
   };
-  parts.push('<Folder><name>Centerlines and CAD Polylines</name>');
-  addLine('Original IFC Centerline',state.original,'originalLine');
-  addLine('Edited Centerline',state.cl,'editedLine');
-  state.lines.forEach((line,i)=>addLine('CAD Polyline '+(i+1),line,'cadLine'));
-  parts.push('</Folder><Folder><name>Centerline and CAD Vertices</name>');
-  state.cl.forEach((p,i)=>addPoint('CL Vertex '+(i+1),p,'clVertex'));
-  state.lines.forEach((line,i)=>line.forEach((p,j)=>addPoint(`CAD Line ${i+1} Vertex ${j+1}`,p,'cadVertex')));
-  parts.push('</Folder><Folder><name>Arrow Annotations</name>');
+    if(selection.centerlines){parts.push('<Folder><name>Centerlines</name>');
+   addLine('Original IFC Centerline',state.original,'originalLine');
+   addLine('Edited Centerline',state.cl,'editedLine');parts.push('</Folder>')}
+   if(selection.cadLines){parts.push('<Folder><name>Drawn CAD Lines</name>');
+   state.lines.forEach((line,i)=>addLine('CAD Polyline '+(i+1),line,'cadLine'));parts.push('</Folder>')}
+   if(selection.vertices){parts.push('<Folder><name>Centerline and CAD Vertices</name>');
+   state.cl.forEach((p,i)=>addPoint('CL Vertex '+(i+1),p,'clVertex'));
+   state.lines.forEach((line,i)=>line.forEach((p,j)=>addPoint(`CAD Line ${i+1} Vertex ${j+1}`,p,'cadVertex')));parts.push('</Folder>')}
+   if(selection.annotations){parts.push('<Folder><name>Arrow Annotations</name>');
   // Export readable, fixed-width label graphics instead of Google Earth's tiny auto-wrapped labels.
   // This changes only the exported KMZ; annotations stay editable and unchanged in TerraTrace.
   (state.annotations||[]).forEach((a,i)=>{
@@ -1328,13 +1446,16 @@ async function exportKMZ(){
    const [alat,alon]=coords(a.label),delta=.00022;
    parts.push(`<Placemark><name>${xml(a.text)}</name><styleUrl>#annotationLabel${i}</styleUrl><Region><LatLonAltBox><north>${alat+delta}</north><south>${alat-delta}</south><east>${alon+delta}</east><west>${alon-delta}</west></LatLonAltBox><Lod><minLodPixels>220</minLodPixels><maxLodPixels>-1</maxLodPixels></Lod></Region>${pointKml(a.label)}</Placemark>`);
   });
-  parts.push('</Folder><Folder><name>Dimensions</name>');
+  parts.push('</Folder>')}
+   if(selection.dimensions){parts.push('<Folder><name>Dimensions</name>');
   parts.push('<Style id="dimensionLine"><LineStyle><color>fff3d936</color><width>2</width></LineStyle></Style>');
   (state.dimensions||[]).forEach((d,i)=>{const g=dimGeometry(d);if(!g)return;const lines=[[g.c,g.e],...g.extensions];parts.push(`<Placemark><name>Dimension ${i+1}</name><styleUrl>#dimensionLine</styleUrl><MultiGeometry>${lines.map(lineKml).join('')}</MultiGeometry></Placemark>`);const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');ctx.font='bold 38px Arial';const label=dimensionLabel(d);const labelWidth=Math.ceil(ctx.measureText(label).width);const boxWidth=Math.max(170,labelWidth+62);canvas.width=boxWidth;canvas.height=90;ctx.fillStyle='#0b1724';ctx.fillRect(0,0,boxWidth,66);ctx.strokeStyle='#36d9f3';ctx.lineWidth=3;ctx.strokeRect(2,2,boxWidth-4,86);ctx.fillStyle='#e5faff';ctx.font='bold 38px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,boxWidth/2,45);const path=`dimensions/dim_${i+1}.png`;zip.file(path,canvas.toDataURL('image/png').split(',')[1],{base64:true});const [lat,lon]=coords(g.mid),delta=.00025;const heading=(Math.atan2(g.e.e-g.c.e,g.e.n-g.c.n)*180/Math.PI+360)%360;parts.push(`<Style id="dimensionLabel${i}"><IconStyle><heading>${heading.toFixed(3)}</heading><scale>1.40</scale><Icon><href>${path}</href><hotSpot x="0.5" y="0.5" xunits="fraction" yunits="fraction"/></Icon></IconStyle><LabelStyle><scale>0</scale></LabelStyle></Style><Placemark><name>${xml(dimensionLabel(d))}</name><styleUrl>#dimensionLabel${i}</styleUrl><Region><LatLonAltBox><north>${lat+delta}</north><south>${lat-delta}</south><east>${lon+delta}</east><west>${lon-delta}</west></LatLonAltBox><Lod><minLodPixels>190</minLodPixels><maxLodPixels>-1</maxLodPixels></Lod></Region>${pointKml(g.mid)}</Placemark>`)});
-  parts.push('</Folder><Folder><name>CAD Points</name>');
+  parts.push('</Folder>')}
+   if(selection.cadPoints){parts.push('<Folder><name>CAD Points</name>');
   state.points.forEach(p=>addPoint(p.name||'CAD Point',p,'cadPoint'));
-  parts.push('</Folder><Folder><name>Photo Pins</name>');
-  let photosPacked=0,photosMissing=0;
+  parts.push('</Folder>')}
+   let photosPacked=0,photosMissing=0;
+   if(selection.photos){parts.push('<Folder><name>Photo Pins</name>');
   for(let i=0;i<state.photos.length;i++){
    const p=state.photos[i];
    const photoName=p.name||('Photo '+(i+1));
@@ -1372,9 +1493,10 @@ async function exportKMZ(){
    description+='</div>';
    addPoint(photoName,p,'photoPoint',description);
   }
-  // Export stationing as named Google Earth placemarks when the stationing checkbox is enabled.
+  parts.push('</Folder>')}
+   // Export stationing as named Google Earth placemarks when selected.
   let stationExportCount=0;
-  if($('showStationing')?.checked && state.stationingVisible!==false && state.stationingOverlay?.labels?.length){
+  if(selection.stationing && state.stationingOverlay?.labels?.length){
    parts.push('<Folder><name>Stationing Labels</name>');
    parts.push('<Style id="stationText"><IconStyle><scale>0</scale></IconStyle><LabelStyle><color>ffffffff</color><scale>0.85</scale></LabelStyle></Style>');
    for(const label of state.stationingOverlay.labels){
@@ -1424,37 +1546,99 @@ async function exportKMZ(){
    if(obj.type==='Feature')return [obj];
    return [{type:'Feature',properties:{},geometry:obj}];
   };
-  parts.push('</Folder><Folder><name>Imported GIS Layers (KML / KMZ / GeoJSON)</name>');
-  state.reference.forEach((ref,layerIndex)=>{
-   parts.push(`<Folder><name>Imported Layer ${layerIndex+1}</name>`);
-   importedFeatures(ref).forEach((feature,featureIndex)=>{
-    const geom=importedGeometry(feature.geometry);
-    if(!geom)return;
-    const prop=feature.properties||{};
-    const name=prop.name||prop.Name||`Imported Feature ${featureIndex+1}`;
-    const color=kmlColorFromHex(prop._color||'#d2a9ff');
-    const width=Math.max(0.5,Math.min(15,Number(prop._width)||2));
-    const attributeMarkup=importedAttributeMarkup(prop);
-    parts.push(`<Placemark><name>${xml(name)}</name>${attributeMarkup}<Style><LineStyle><color>${color}</color><width>${width}</width></LineStyle><PolyStyle><color>${Math.round(Math.max(0,Math.min(1,prop._fillOpacity??0.3))*255).toString(16).padStart(2,'0')+kmlColorFromHex(prop._fillColor||prop._color||'#d2a9ff').slice(2)}</color><fill>${prop._fillEnabled===false?0:1}</fill><outline>${prop._outlineEnabled===false?0:1}</outline></PolyStyle><IconStyle><scale>0.45</scale><Icon><href>icons/cadPoint.png</href></Icon></IconStyle><LabelStyle><scale>0</scale></LabelStyle></Style>${geom}</Placemark>`);
-   });
-   parts.push('</Folder>');
-  });
-  parts.push('</Folder></Document></kml>');
+    const selectedGIS=ttKmzExportGroups().filter(group=>selection.categories.has(group.name));
+   if(selectedGIS.length)parts.push('<Folder><name>Imported GIS Layers</name>');
+   for(const group of selectedGIS){
+    parts.push(`<Folder><name>${xml(group.name)}</name>`);
+    for(const source of group.sources){
+     parts.push(`<Folder><name>${xml(source.source)}</name>`);
+     source.features.forEach((feature,featureIndex)=>{
+      const geom=importedGeometry(feature.geometry);
+      if(!geom)return;
+      const prop=feature.properties||{};
+      const name=prop.name||prop.Name||`Imported Feature ${featureIndex+1}`;
+      const color=kmlColorFromHex(prop._color||'#d2a9ff');
+      const width=Math.max(0.5,Math.min(15,Number(prop._width)||2));
+      const attributeMarkup=importedAttributeMarkup(prop);
+      parts.push(`<Placemark><name>${xml(name)}</name>${attributeMarkup}<Style><LineStyle><color>${color}</color><width>${width}</width></LineStyle><PolyStyle><color>${Math.round(Math.max(0,Math.min(1,prop._fillOpacity??0.3))*255).toString(16).padStart(2,'0')+kmlColorFromHex(prop._fillColor||prop._color||'#d2a9ff').slice(2)}</color><fill>${prop._fillEnabled===false?0:1}</fill><outline>${prop._outlineEnabled===false?0:1}</outline></PolyStyle><IconStyle><scale>0.45</scale><Icon><href>icons/cadPoint.png</href></Icon></IconStyle><LabelStyle><scale>0</scale></LabelStyle></Style>${geom}</Placemark>`);
+     });
+     parts.push('</Folder>');
+    }
+    parts.push('</Folder>');
+   }
+   if(selectedGIS.length)parts.push('</Folder>');
+   parts.push('</Document></kml>');
   const kml=parts.join('');
   // Validate the XML and count geometry before creating the archive.
   const doc=new DOMParser().parseFromString(kml,'application/xml');
   if(doc.getElementsByTagName('parsererror').length)throw Error('KMZ KML validation failed; nothing exported.');
-  const expectedLines=(state.original.length>1?1:0)+(state.cl.length>1?1:0)+state.lines.filter(x=>x.length>1).length;
-  const expectedPoints=state.cl.length+state.lines.reduce((n,l)=>n+l.length,0)+state.points.length+state.photos.length;const annotationCount=(state.annotations||[]).length;
-  if(doc.getElementsByTagName('LineString').length!==expectedLines+importedLineCount+annotationCount*3+(state.dimensions||[]).length*3||doc.getElementsByTagName('Point').length!==expectedPoints+importedPointCount+stationExportCount+annotationCount+(state.dimensions||[]).length||doc.getElementsByTagName('Polygon').length!==importedPolygonCount)throw Error('KMZ geometry validation failed; nothing exported.');
+   const expectedLines=(selection.centerlines?((state.original.length>1?1:0)+(state.cl.length>1?1:0)):0)+(selection.cadLines?state.lines.filter(x=>x.length>1).length:0);
+   const expectedPoints=(selection.vertices?(state.cl.length+state.lines.reduce((n,l)=>n+l.length,0)):0)+(selection.cadPoints?state.points.length:0)+(selection.photos?state.photos.length:0);
+   const annotationCount=selection.annotations?(state.annotations||[]).length:0;
+   const dimensionCount=selection.dimensions?(state.dimensions||[]).filter(d=>dimGeometry(d)).length:0;
+  if(doc.getElementsByTagName('LineString').length!==expectedLines+importedLineCount+annotationCount*3+dimensionCount*3||doc.getElementsByTagName('Point').length!==expectedPoints+importedPointCount+stationExportCount+annotationCount+dimensionCount||doc.getElementsByTagName('Polygon').length!==importedPolygonCount)throw Error('KMZ geometry validation failed; nothing exported.');
   zip.file('doc.kml',kml);
   const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
-  download('TerraTrace_Field_Software_All_Geometry.kmz',blob);
+  download((state.projectName||'TerraTrace').replace(/[^a-z0-9_-]/gi,'_')+'_Selected_Layers.kmz',blob);
   if(photosMissing)alert(`KMZ exported with ${photosPacked} embedded photo(s). ${photosMissing} photo pin(s) have no usable image. Open each pin in TerraTrace to reattach its photo.`);
-  status(`KMZ exported: ${photosPacked} embedded photos, ${photosMissing} missing; ${expectedLines} CAD lines, ${importedLineCount} imported lines`);
- }catch(e){alert('KMZ export failed: '+e.message)}
+  status(`KMZ exported: ${photosPacked} embedded photos, ${photosMissing} missing; ${expectedLines} CAD lines, ${importedLineCount} imported lines`);return true;
+ }catch(e){alert('KMZ export failed: '+e.message);return false}
 }
-function exportDXF(){try{validCRS();const lines=[];const add=(...v)=>{for(let i=0;i<v.length;i+=2)lines.push(String(v[i]),String(v[i+1]))};add(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1015',0,'ENDSEC',0,'SECTION',2,'TABLES',0,'TABLE',2,'LAYER',70,5);for(const name of ['IFC_CL','EDITED_CL','CAD_LINES','CAD_VERTICES','CAD_POINTS','PHOTO_PINS'])add(0,'LAYER',2,name,70,0,62,7,6,'CONTINUOUS');add(0,'ENDTAB',0,'ENDSEC',0,'SECTION',2,'ENTITIES');const poly=(pts,layer)=>{if(pts.length<2)return;add(0,'LWPOLYLINE',8,layer,90,pts.length,70,0);pts.forEach(p=>add(10,p.e,20,p.n))};const point=(p,layer)=>{add(0,'POINT',8,layer,10,p.e,20,p.n,30,0);add(0,'TEXT',8,layer,10,p.e,20,p.n,40,2.5,1,(p.name||'POINT').replace(/[\r\n]/g,' ').slice(0,200))};poly(state.original,'IFC_CL');poly(state.cl,'EDITED_CL');state.lines.forEach(l=>poly(l,'CAD_LINES'));state.cl.forEach((p,i)=>point({...p,name:`CL VERTEX ${i+1}`},'CAD_VERTICES'));state.lines.forEach((l,i)=>l.forEach((p,j)=>point({...p,name:`LINE ${i+1} VERTEX ${j+1}`},'CAD_VERTICES')));state.points.forEach(p=>point(p,'CAD_POINTS'));state.photos.forEach(p=>point(p,'PHOTO_PINS'));(state.dimensions||[]).forEach(d=>{const g=dimGeometry(d);if(g){poly([g.c,g.e],'CAD_LINES');g.extensions.forEach(seg=>poly(seg,'CAD_LINES'));point({...g.mid,name:dimensionLabel(d)},'CAD_POINTS')}});add(0,'ENDSEC',0,'EOF');download('TerraTrace_Field_Software_CAD.dxf',new Blob([lines.join('\r\n')+'\r\n'],{type:'application/dxf'}));status('DXF exported in project CRS units')}catch(e){alert(e.message)}}function shiftEquations(insertIndex){}
+function exportDXF(){
+ try{
+  validCRS();
+  const epsg=Object.keys(EPSG_DEFS).find(code=>EPSG_DEFS[code]===state.crs)||'';
+  const cadCodes={'2275':'TX83-NF','2276':'TX83-NCF','2277':'TX83-CF','2278':'TX83-SCF','2279':'TX83-SF'};
+  const cadCode=cadCodes[epsg]||(epsg?'EPSG:'+epsg:'Custom project CRS');
+  const isUSFoot=/\+units=us-ft\b/.test(state.crs);
+  const isMeter=/\+units=m\b/.test(state.crs);
+  const coordUnit=isUSFoot?'US survey feet':isMeter?'meters':'project coordinate units';
+  const records=[],layNames=['IFC_CL','EDITED_CL','CAD_LINES','CAD_VERTICES','CAD_POINTS','PHOTO_PINS','DIMENSIONS'];
+  const add=(...codes)=>{if(codes.length%2)throw Error('DXF writer code/value mismatch');for(let i=0;i<codes.length;i+=2){const val=codes[i+1];if(typeof val==='number'&&!Number.isFinite(val))throw Error('DXF contains a non-finite coordinate');records.push(String(codes[i]),String(val))}};
+  const val=(p,k)=>{const n=Number(p?.[k]);if(!Number.isFinite(n)||p?.[k]===undefined||p?.[k]===null)throw Error('Invalid '+k+' coordinate in CAD export. Check project CRS and geometry.');return n};
+  const xy=p=>[val(p,'e'),val(p,'n'),Number.isFinite(Number(p?.z))?Number(p.z):0];
+  // A strict AutoCAD R12 ASCII DXF avoids the incomplete AC1015 symbol/entity sections
+  // that caused Civil 3D to stop at line 84. R12 supports POLYLINE/VERTEX natively.
+  add(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',9,'$LUNITS',70,2,9,'$LUPREC',70,4,0,'ENDSEC');
+  add(999,`TerraTrace exported projected XY: ${cadCode}; ${coordUnit}`);
+  add(999,'AutoCAD/Civil 3D: open DXF, then MAPCSASSIGN to set drawing coordinate reference metadata');
+  add(0,'SECTION',2,'TABLES');
+  add(0,'TABLE',2,'LTYPE',70,1);
+  add(0,'LTYPE',2,'CONTINUOUS',70,0,3,'Solid line',72,65,73,0,40,0);
+  add(0,'ENDTAB',0,'TABLE',2,'LAYER',70,layNames.length);
+  const color={'IFC_CL':4,'EDITED_CL':2,'CAD_LINES':3,'CAD_VERTICES':6,'CAD_POINTS':5,'PHOTO_PINS':1,'DIMENSIONS':7};
+  for(const layer of layNames)add(0,'LAYER',2,layer,70,0,62,color[layer],6,'CONTINUOUS');
+  add(0,'ENDTAB',0,'ENDSEC',0,'SECTION',2,'BLOCKS',0,'ENDSEC',0,'SECTION',2,'ENTITIES');
+  let entityCount=0;
+  const poly=(points,layer)=>{
+   if(!Array.isArray(points)||points.length<2)return;
+   add(0,'POLYLINE',8,layer,66,1,10,0,20,0,30,0,70,0);
+   for(const p of points){const [x,y,z]=xy(p);add(0,'VERTEX',8,layer,10,x,20,y,30,z,70,0)}
+   add(0,'SEQEND',8,layer);entityCount++;
+  };
+  const cleanText=v=>String(v||'POINT').replace(/[\r\n]+/g,' ').replace(/[^\x20-\x7e]/g,'_').slice(0,150);
+  const point=(p,layer)=>{
+   const [x,y,z]=xy(p);
+   add(0,'POINT',8,layer,10,x,20,y,30,z);entityCount++;
+   add(0,'TEXT',8,layer,10,x,20,y,30,z,40,2.5,1,cleanText(p.name));entityCount++;
+  };
+  poly(state.original,'IFC_CL');poly(state.cl,'EDITED_CL');
+  (state.lines||[]).forEach(l=>poly(l,'CAD_LINES'));
+  (state.cl||[]).forEach((p,i)=>point({...p,name:`CL VERTEX ${i+1}`},'CAD_VERTICES'));
+  (state.lines||[]).forEach((l,i)=>l.forEach((p,j)=>point({...p,name:`LINE ${i+1} VERTEX ${j+1}`},'CAD_VERTICES')));
+  (state.points||[]).forEach(p=>point(p,'CAD_POINTS'));
+  (state.photos||[]).forEach(p=>point(p,'PHOTO_PINS'));
+  (state.dimensions||[]).forEach(d=>{const g=dimGeometry(d);if(g){poly([g.c,g.e],'DIMENSIONS');g.extensions.forEach(seg=>poly(seg,'DIMENSIONS'));point({...g.mid,name:dimensionLabel(d)},'DIMENSIONS')}});
+  if(!entityCount)throw Error('No CAD/centerline geometry to export.');
+  add(0,'ENDSEC',0,'EOF');
+  const file=records.join('\r\n')+'\r\n';
+  // DXF entity coordinates are real northing/easting values, not latitude/longitude.
+  const title=(state.projectName||'TerraTrace').replace(/[^a-z0-9_-]/gi,'_');
+  download(`${title}_${cadCode.replace(/[^a-z0-9_-]/gi,'_')}_CAD.dxf`,new Blob([file],{type:'application/dxf'}));
+  status(`DXF exported: ${entityCount} CAD entities · ${cadCode} · ${coordUnit}. Assign ${cadCode} in Civil 3D with MAPCSASSIGN if needed.`);
+ }catch(e){alert('DXF export failed: '+e.message)}
+}
+function shiftEquations(insertIndex){}
 function selectStationingSource(source,tap){
  try{
   const pts=resolveMapStationSource({...source,reversed:false});

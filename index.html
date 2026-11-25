@@ -5294,7 +5294,9 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
 
 /* Match the land Overall tile and distribute the five As-Built tiles within the map. */
 #tt-tract-progress .tt-stat-overall{position:sticky;right:0;z-index:1}
-#ttAbDock{gap:5px;max-width:100vw}
+#ttAbDock{gap:5px;max-width:100vw;flex-direction:row-reverse}
+#ttAbDockToggle{border-radius:0 9px 9px 0}
+#ttAbDock.ab-collapsed #ttAbDockToggle{border-radius:9px 0 0 9px}
 #ttAbDockContent{padding:0;flex:1;min-width:0;overflow:visible;max-height:none}
 #ttAbDock .ab-grid{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(5,var(--ab-tile-height,82px));gap:var(--ab-tile-gap,8px);margin:0}
 #ttAbGauges .tt-stat{width:100%;height:100%;min-height:0;min-width:0;max-width:none;flex:none;justify-content:center;padding:var(--ab-pad,7px) 5px;gap:var(--ab-inner-gap,2px);border-radius:13px}
@@ -5399,7 +5401,8 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
   const match=lastLandTile?.viewport===width?lastLandTile:null;
   const tileWidth=match?.width||(width<=600?97:width<=1000?103:135);
   const preferredHeight=match?.height||82;
-  const right=Math.max(0,Math.min(match?.right??48,width-tileWidth-35));
+  const tileRight=Math.max(0,Math.min(match?.right??48,width-tileWidth));
+  const right=Math.max(0,tileRight-35);
   const base=Math.max(0,Math.ceil(bottom(header)),Math.ceil(bottom(ownership)),Math.ceil(bottom(landToggle)));
   const available=Math.max(0,height-base-12);
   // Five equal tiles, with equal gaps before the first tile and between each subsequent tile.

@@ -5291,6 +5291,27 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
 #ttAbDockContent #ttAbDockRefresh[hidden],#ttAbDockContent [hidden]{display:none!important}
 #ttAbDockState:not([hidden]){pointer-events:auto;background:#0b0c0e;border:1px solid #353b41;border-radius:10px;padding:8px;margin:0 0 7px!important}
 @media(max-width:650px){#ttAbDock{width:min(158px,100vw)}#ttAbGauges .tt-stat{min-height:68px}}
+
+/* Match the land Overall tile and distribute the five As-Built tiles within the map. */
+#tt-tract-progress .tt-stat-overall{position:sticky;right:0;z-index:1}
+#ttAbDock{gap:5px;max-width:100vw}
+#ttAbDockContent{padding:0;flex:1;min-width:0;overflow:visible;max-height:none}
+#ttAbDock .ab-grid{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(5,var(--ab-tile-height,82px));gap:var(--ab-tile-gap,8px);margin:0}
+#ttAbGauges .tt-stat{width:100%;height:100%;min-height:0;min-width:0;max-width:none;flex:none;justify-content:center;padding:var(--ab-pad,7px) 5px;gap:var(--ab-inner-gap,2px);border-radius:13px}
+#ttAbGauges .tt-stat-icon{height:var(--ab-icon,20px);width:var(--ab-icon,20px);flex:none}
+#ttAbGauges .tt-stat-icon svg{height:100%;width:100%}
+#ttAbGauges .tt-stat-value{font-size:var(--ab-value,18px)}
+#ttAbGauges .tt-stat-label,#ttAbGauges .tt-stat-count{font-size:var(--ab-small,9px);line-height:1.12}
+#ttAbDock.ab-compact .tt-stat{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:3px;row-gap:0;padding:2px 4px;border-radius:8px}
+#ttAbDock.ab-compact .tt-stat-icon{grid-row:1;grid-column:1}
+#ttAbDock.ab-compact .tt-stat-value{grid-row:1;grid-column:2;justify-self:center}
+#ttAbDock.ab-compact .tt-stat-label{grid-column:1/-1;grid-row:2}
+#ttAbDock.ab-compact .tt-stat-count{display:none}
+#ttAbDock.ab-tiny .tt-stat{grid-template-rows:1fr;grid-template-columns:1fr auto;align-items:center;padding:1px 3px}
+#ttAbDock.ab-tiny .tt-stat-icon{display:none}
+#ttAbDock.ab-tiny .tt-stat-label{grid-column:1;grid-row:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ttAbDock.ab-tiny .tt-stat-value{grid-column:2;grid-row:1}
+#ttAbDock.ab-collapsed{gap:0;width:30px!important;right:0!important}
 </style>
 <script id="tt-asbuilt-script">
 (()=>{'use strict';
@@ -5365,8 +5386,40 @@ const observer=new MutationObserver(()=>{const host=$('ownershipRows');if(!host)
  }catch(e){if(run===seq&&same(c)){if(attempted)fresh=false;say('Not confirmed saved: '+e.message+(pending.has(key)?' Use Retry Pending Save (checks for the existing JSON first).':''),true);}}finally{if(run===seq){busy=false;draw();}}}
  function readRange(a,b){const begin=parseStation($(a).value),end=parseStation($(b).value);if(!validRange(begin,end)){say('Enter valid stations with end greater than begin, e.g. 10+00 to 25+50.25.',true);return null;}return {begin,end};}
  function exportJSON(){if(!active||!same(active)||!fresh)return;const m=metrics(records);const data={schema:1,projectId:active.id,projectName:window.ttProject?.name,exportedAt:new Date().toISOString(),projectRange:m.bounds,overallPercent:m.overall,categories:m.stats,records};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=make('a');a.href=url;a.download='TerraTrace_AsBuilt_'+active.id.replace(/[^a-z0-9_-]/gi,'_')+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
- function positionDock(){const dock=$('ttAbDock'),drawer=$('drawer');if(!dock||!drawer)return;const width=window.innerWidth,height=window.innerHeight;dock.hidden=!active||!same(active);if(dock.hidden)return;const header=document.querySelector('body > header'),ownership=$('tt-tract-progress'),landToggle=$('ttLandProgressToggle');const bottom=el=>el&&!el.hidden?el.getBoundingClientRect().bottom:0;const top=Math.max(8,Math.ceil(bottom(header))+6,Math.ceil(bottom(ownership))+5,Math.ceil(bottom(landToggle))+5);dock.style.top=top+'px';dock.style.right='0';dock.style.maxHeight=Math.max(42,height-top-16)+'px';}
- function initDock(drawer){const dock=make('aside');dock.id='ttAbDock';dock.hidden=true;dock.setAttribute('aria-label','As-Built progress dashboard');dock.innerHTML=`<button type="button" id="ttAbDockToggle" aria-controls="ttAbDockContent" aria-expanded="true"><span id="ttAbDockArrow" aria-hidden="true">›</span></button><div id="ttAbDockContent"><div class="ab-heading" id="ttAbDockProject" hidden></div><p class="ab-note" id="ttAbDockState"></p><span id="ttAbDockPercent" hidden>—</span><div id="ttAbGauges" class="ab-grid"></div><button type="button" class="btn" id="ttAbDockRefresh" hidden>Refresh Cloud</button></div>`;document.body.append(dock);$('ttAbDockContent').style.backgroundImage=getComputedStyle(drawer).backgroundImage;const toggle=$('ttAbDockToggle'),content=$('ttAbDockContent');function setExpanded(open){toggle.setAttribute('aria-expanded',String(open));toggle.title=open?'Hide As-Built progress':'Show As-Built progress';toggle.setAttribute('aria-label',toggle.title);content.hidden=!open;dock.classList.toggle('ab-collapsed',!open);positionDock();}setExpanded(window.innerWidth>650);toggle.onclick=()=>{const expand=content.hidden;setExpanded(expand);if(expand)refresh();};$('ttAbDockRefresh').onclick=refresh;new MutationObserver(positionDock).observe(drawer,{attributes:true,attributeFilter:['class']});drawer.addEventListener('transitionend',positionDock);window.addEventListener('resize',positionDock);window.addEventListener('tt-land-progress-layout',positionDock);if(window.ResizeObserver){const ro=new ResizeObserver(positionDock);for(const el of [drawer,document.querySelector('body > header'),$('tt-tract-progress'),$('ttLandProgressToggle')])if(el)ro.observe(el);}}
+ let lastLandTile=null;
+ function positionDock(){
+  const dock=$('ttAbDock'),drawer=$('drawer');if(!dock||!drawer)return;
+  const width=window.innerWidth,height=window.innerHeight;
+  dock.hidden=!active||!same(active);if(dock.hidden)return;
+  const header=document.querySelector('body > header'),ownership=$('tt-tract-progress'),landToggle=$('ttLandProgressToggle');
+  const bottom=el=>el&&!el.hidden?el.getBoundingClientRect().bottom:0;
+  const landTile=ownership&&!ownership.hidden?ownership.querySelector('.tt-stat-overall'):null;
+  const rect=landTile?.getBoundingClientRect();
+  if(rect&&rect.width>0&&rect.right>0&&rect.left<width){lastLandTile={width:rect.width,height:rect.height,right:Math.max(0,width-rect.right),viewport:width};}
+  const match=lastLandTile?.viewport===width?lastLandTile:null;
+  const tileWidth=match?.width||(width<=600?97:width<=1000?103:135);
+  const preferredHeight=match?.height||82;
+  const right=Math.max(0,Math.min(match?.right??48,width-tileWidth-35));
+  const base=Math.max(0,Math.ceil(bottom(header)),Math.ceil(bottom(ownership)),Math.ceil(bottom(landToggle)));
+  const available=Math.max(0,height-base-12);
+  // Five equal tiles, with equal gaps before the first tile and between each subsequent tile.
+  const minGap=available>=250?6:available>=125?3:1;
+  const tileHeight=Math.max(1,Math.min(preferredHeight,Math.floor((available-5*minGap)/5)));
+  const gap=Math.max(0,Math.floor((available-5*tileHeight)/5));
+  const top=base+gap;
+  dock.style.top=top+'px';dock.style.right=right+'px';dock.style.width=(tileWidth+35)+'px';dock.style.maxHeight=Math.max(0,height-top-12)+'px';
+  dock.style.setProperty('--ab-tile-height',tileHeight+'px');dock.style.setProperty('--ab-tile-gap',gap+'px');
+  const compact=tileHeight<49,tiny=tileHeight<28;
+  dock.classList.toggle('ab-compact',compact);dock.classList.toggle('ab-tiny',tiny);
+  dock.style.setProperty('--ab-pad',Math.max(1,Math.min(7,Math.floor((tileHeight-49)/4)))+'px');
+  dock.style.setProperty('--ab-inner-gap',tileHeight>=70?'2px':'0px');
+  dock.style.setProperty('--ab-icon',Math.max(8,Math.min(20,Math.floor(tileHeight*.24)))+'px');
+  dock.style.setProperty('--ab-value',Math.max(8,Math.min(18,Math.floor(tileHeight*.23)))+'px');
+  dock.style.setProperty('--ab-small',Math.max(6,Math.min(9,Math.floor(tileHeight*.135)))+'px');
+  // Arrow remains independently reachable, even when the land dashboard is collapsed.
+  if(dock.classList.contains('ab-collapsed'))dock.style.top=Math.min(top,Math.max(0,height-42))+'px';
+ }
+ function initDock(drawer){const dock=make('aside');dock.id='ttAbDock';dock.hidden=true;dock.setAttribute('aria-label','As-Built progress dashboard');dock.innerHTML=`<button type="button" id="ttAbDockToggle" aria-controls="ttAbDockContent" aria-expanded="true"><span id="ttAbDockArrow" aria-hidden="true">›</span></button><div id="ttAbDockContent"><div class="ab-heading" id="ttAbDockProject" hidden></div><p class="ab-note" id="ttAbDockState"></p><span id="ttAbDockPercent" hidden>—</span><div id="ttAbGauges" class="ab-grid"></div><button type="button" class="btn" id="ttAbDockRefresh" hidden>Refresh Cloud</button></div>`;document.body.append(dock);$('ttAbDockContent').style.backgroundImage=getComputedStyle(drawer).backgroundImage;const toggle=$('ttAbDockToggle'),content=$('ttAbDockContent');function setExpanded(open){toggle.setAttribute('aria-expanded',String(open));toggle.title=open?'Hide As-Built progress':'Show As-Built progress';toggle.setAttribute('aria-label',toggle.title);content.hidden=!open;dock.classList.toggle('ab-collapsed',!open);positionDock();}setExpanded(window.innerWidth>650);toggle.onclick=()=>{const expand=content.hidden;setExpanded(expand);if(expand)refresh();};$('ttAbDockRefresh').onclick=refresh;new MutationObserver(positionDock).observe(drawer,{attributes:true,attributeFilter:['class']});drawer.addEventListener('transitionend',positionDock);window.addEventListener('resize',positionDock);window.addEventListener('tt-land-progress-layout',positionDock);$('tt-tract-progress')?.addEventListener('scroll',positionDock,{passive:true});if(window.ResizeObserver){const ro=new ResizeObserver(positionDock);for(const el of [drawer,document.querySelector('body > header'),$('tt-tract-progress'),$('ttLandProgressToggle')])if(el)ro.observe(el);}}
  function init(){const drawer=$('drawer');if(!drawer||$('ttAsBuiltSection'))return;const section=make('details',undefined,'tt-section');section.id='ttAsBuiltSection';section.innerHTML=`<summary>AS-BUILT</summary><div class="tt-section-body ab-body"><div class="ab-heading" id="ttAbProject">Open an Enterprise cloud project.</div><p class="ab-note" id="ttAbState"></p><p id="ttAbWarning" class="ab-status bad" hidden></p><div class="ab-card" id="ttAbBounds"><div class="ab-heading">Project station limits</div><p class="ab-note" id="ttAbBoundsHelp"></p><div class="flex"><div><label for="ttAbBoundsBegin">Begin station</label><input id="ttAbBoundsBegin" placeholder="0+00" autocomplete="off"></div><div><label for="ttAbBoundsEnd">End station</label><input id="ttAbBoundsEnd" placeholder="100+00" autocomplete="off"></div></div><button type="button" class="btn" id="ttAbSet">Save Project Limits</button></div><div class="ab-card" id="ttAbEntryForm"><div class="ab-heading">Add completed footage</div><label for="ttAbCategory">Activity</label><select id="ttAbCategory">${CATS.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select><div class="flex"><div><label for="ttAbBegin">Begin station</label><input id="ttAbBegin" placeholder="10+00" autocomplete="off"></div><div><label for="ttAbEnd">End station</label><input id="ttAbEnd" placeholder="25+00" autocomplete="off"></div></div><label for="ttAbNote">Note (optional)</label><input id="ttAbNote" maxlength="500" placeholder="Crew / work details"><button class="btn primary" id="ttAbAdd" type="button">+ Save Progress to Cloud</button><p class="ab-note">Overlapping ranges count once. Station equations are not applied; use continuous stationing in feet.</p></div><button type="button" class="btn primary" id="ttAbRetry" hidden>Retry Pending Save</button><button type="button" class="btn" id="ttAbDiscard" hidden>Cancel Pending Save</button><div class="ab-actions"><button type="button" class="btn" id="ttAbRefresh">Refresh Cloud</button><button type="button" class="btn" id="ttAbExport">Export JSON</button></div><p id="ttAbStatus" class="ab-status" role="status" aria-live="polite"></p><div class="ab-card"><div class="ab-heading">Entry history · <span id="ttAbCount"></span></div><label for="ttAbFilter">Filter history</label><select id="ttAbFilter"><option value="all">All activities &amp; project limits</option>${CATS.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select><div id="ttAbHistory" class="ab-history"></div></div><p class="ab-note">Each saved update is JSON data stored in a .json.txt document in the shared project Document Center for upload compatibility. Export JSON downloads a regular .json file. Do not delete progress records from the Document Center. Viewer access is read-only.</p></div>`;
  const anchor=$('ownershipSection')||$('etDrawerProjects');if(anchor?.parentElement===drawer)anchor.after(section);else drawer.prepend(section);
  initDock(drawer);
